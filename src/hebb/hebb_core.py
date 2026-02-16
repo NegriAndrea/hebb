@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import numpy as np
+import h5py
+from pathlib import PurePath
+from astropy.table import Table
+import astropy.units as u
+import astropy.cosmology.units as cu
+u.add_enabled_units(cu)
+import numpy as np
+from numba import njit
+
+def comov_volume(area, z1, z2):
+    """
+    Area must be with an astropy unit, e.g. 300*(u.arcmin**2)
+    Returns size lenght of a box in cMpc
+
+    """
+    from astropy.cosmology import Planck15
+    Omega     = area.to(u.steradian).value # get rid of unit
+    d2        = Planck15.comoving_distance(z1)
+    d3        = Planck15.comoving_distance(z2)
+    V         = Omega/3 * (d3**3 - d2**3)
+    newL      = np.cbrt(V.to(u.Mpc**3))
+
+    return newL
+
+@njit
+def dL(coord1, coord2_in, boxsize):
+    """
+    Computes the distance in a 3D periodic box between a set of coordinates and
+    a point, or another, broadcastable set of coordinates.
+
+    coord1: array of dimensions (n,3)
+
+    coord2: array of dimensions (1,3) or (3,) in the case of a single point, or
+                array of size (n,3) in case of multiple points
+
+    boxsize : scalar, the size of the box, each dimension has the same size
+
+    Returns: the distance squared
+
+
+    usage:
+
+    import numpy as np
+
+    box = 0.5
+
+    # generate fake data
+    rng = np.random.default_rng(12345)
+    c1 = rng.random((1000,3))
+
+    distancePeriodic(c1, np.array([0.,0.,0.], box))
+
+
+    c2 = rng.random((1000,3))
+    distancePeriodic(c1, c2, box))
+
+    """
+
+    message = 'coord1 must be a two dimensional array with shape[1]==3'
+    coord2=np.atleast_2d(coord2_in)
+
+    if coord1.ndim != 2:
+        raise ValueError(message)
+
+    if coord1.shape[1] != 3:
+        raise ValueError(message)
+
+    if coord2.ndim == 1:
+        if coord2.size != 3:
+            raise ValueError('I need 3 points as np.array([x,y,z])')
+    elif coord2.ndim == 2:
+        if coord2.shape[1] != 3:
+            raise ValueError('I need 3 points as np.array([x,y,z])')
+    else:
+        raise ValueError('I need 3 points as np.array([x,y,z])')
+
+    dx = coord1[:,0] - coord2[:,0]
+    dy = coord1[:,1] - coord2[:,1]
+    dz = coord1[:,2] - coord2[:,2]
+
+    dx[(dx > boxsize*0.5)] -= boxsize
+    dx[(dx < - boxsize*0.5)] += boxsize
+    dy[(dy > boxsize*0.5)] -= boxsize
+    dy[(dy < - boxsize*0.5)] += boxsize
+    dz[(dz > boxsize*0.5)] -= boxsize
+    dz[(dz < - boxsize*0.5)] += boxsize
+
+    return dx, dy, dz
+
+@njit(parallel=True)
+def bootstrap_brute_force(Nboxes, BoxSize, newL, coords, centers, mass, fileNr, subNr):
+
+    Mmax = np.zeros(Nboxes)
+    fileNrMax = np.zeros(Nboxes, dtype=fileNr.dtype)
+    subNrMax = np.zeros(Nboxes, dtype=subNr.dtype)
+    t=[]
+
+    for j in range(Nboxes):
+
+        dx, dy, dz = dL(coords, centers[j,:], BoxSize)
+        mask = (np.abs(dx) < newL) & (np.abs(dy) < newL) & (np.abs(dz) < newL)
+
+        assert np.count_nonzero(mask) > 0
+        mass_tmp = mass[mask]
+        fileNr_tmp = fileNr[mask]
+        subNr_tmp = subNr[mask]
+
+        index = np.argmax(mass_tmp)
+
+        Mmax[j] = mass_tmp[index]
+        fileNrMax[j] = fileNr_tmp[index]
+        subNrMax[j] = subNr_tmp[index]
+
+    return Mmax, fileNrMax, subNrMax
+
+def bootstrap_kdtree(Nboxes, BoxSize, newL, coords, centers, mass, fileNr, subNr):
+    from scipy import spatial
+
+    Mmax = np.zeros(Nboxes)
+    fileNrMax = np.zeros(Nboxes, dtype=fileNr.dtype)
+    subNrMax = np.zeros(Nboxes, dtype=subNr.dtype)
+
+    tree_data = spatial.KDTree(coords, boxsize=BoxSize, leafsize=32)
+    tree_centres = spatial.KDTree(centers, boxsize=BoxSize, leafsize=32)
+    indexes = tree_centres.query_ball_tree(tree_data, newL, p=np.inf)
+
+    assert len(indexes) == Nboxes
+    for j in range(Nboxes):
+
+        assert len(indexes[j]) > 0
+        ind = np.array(indexes[j],
+                             dtype=np.min_scalar_type(coords.shape[0]))
+        mass_tmp = mass[ind]
+        fileNr_tmp = fileNr[ind]
+        subNr_tmp = subNr[ind]
+
+        index = np.argmax(mass_tmp)
+        Mmax[j] = mass_tmp[index]
+        fileNrMax[j] = fileNr_tmp[index]
+        subNrMax[j] = subNr_tmp[index]
+
+    return Mmax, fileNrMax, subNrMax
+
+
+
+def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0):
+    from .uchuu_snaps_z import uchuu_snap_list
+
+    snapNr_list, z = uchuu_snap_list()
+    snapNr = snapNr_list[np.abs(z - z_target).argmin()]
+
+    # Boxsize in cMpc
+    BoxSize = 2000/0.6774*1.00000001
+
+    with h5py.File(PurePath(path_data)/f'catalogue_uchuu.hdf5', 'r') as ff:
+        # coordinates in cMpc, masses in Msun
+        coords = ff[f'S-{snapNr}/Coordinates'][()]
+        mass= ff[f'S-{snapNr}/M200c'][()]
+        fileNr = ff[f'S-{snapNr}/fileNr'][()]
+        subNr = ff[f'/S-{snapNr}/SubNr'][()]
+
+
+    if M is not None:
+        mask = mass>np.log10(M)
+
+        mass=mass[mask]
+        coords=coords[mask].astype(np.float64)
+        subNr = subNr[mask]
+        fileNr = fileNr[mask]
+        del mask
+
+    if L is None:
+        # for surveys
+        area = fov*(u.arcmin**2)
+        newL = comov_volume(area,z1, z2).value/2 # in cMpc
+    else:
+        newL = L/2.
+
+    if v>0:
+        print(f"V={8*newL**3:3e} cMpc^3,  L={newL*2:3f} cMpc")
+
+    # shoot (Nboxes,3) random numbers between 0 and boxsize
+    rng = np.random.default_rng()
+    centers=rng.random(size=(Nboxes,3), dtype=np.float32)
+    centers*=BoxSize
+
+    # Mmax, fileNrMax, subNrMax = bootstrap_brute_force(Nboxes, BoxSize, newL, coords,
+                                          # centers, mass, fileNr, subNr)
+    Mmax, fileNrMax, subNrMax = bootstrap_kdtree(Nboxes, BoxSize, newL, coords,
+                                          centers, mass, fileNr, subNr)
+
+    t=Table([Mmax, fileNrMax, subNrMax], names=['M200', 'fileNr', 'subNr'])
+    t.write('table_max.txt', format='ascii.ecsv', overwrite=True)
+
+    return Mmax, fileNrMax, subNrMax

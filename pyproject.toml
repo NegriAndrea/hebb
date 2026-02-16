@@ -1,0 +1,20 @@
+[project]
+name = "hebb"
+description = "Halo Extreme Block Bootstrap package to estimate the largest halo mass given the field of view and redshift depth of a survey"
+version = "0.1"
+authors = [
+    { name = "Andrea Negri", email = "anegri@us.es" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "astropy",
+    "scipy",
+    "h5py>=3.2.0",
+    "numba",
+    "scipy",
+    "pathlib",
+    ]
+
+[project.scripts]
+hebb = "hebb.hebb_cli:hebb_CLI"
