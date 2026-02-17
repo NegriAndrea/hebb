@@ -1,7 +1,7 @@
 [project]
 name = "hebb"
 description = "Halo Extreme Block Bootstrap package to estimate the largest halo mass given the field of view and redshift depth of a survey"
-version = "0.1"
+version = "0.2"
 authors = [
     { name = "Andrea Negri", email = "anegri@us.es" }
 ]
