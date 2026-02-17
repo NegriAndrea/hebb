@@ -1,6 +1,11 @@
+[build-system]
+requires = ["setuptools >= 77.0.3", "wheel", "setuptools-git-versioning"]
+build-backend = "setuptools.build_meta"
+[tool.setuptools-git-versioning]
+enabled = true
+
 [project]
 name = "hebb"
-version = "0.2"
 authors = [
     { name = "Andrea Negri", email = "anegri@us.es" }
 ]
@@ -26,6 +31,8 @@ dependencies = [
     "matplotlib",
     ]
 
+dynamic = ["version"]
+
 [project.optional-dependencies]
 
 [project.urls]
@@ -34,7 +41,3 @@ Issues = "https://github.com/NegriAndrea/hebb/issues"
 
 [project.scripts]
 hebb = "hebb.hebb_cli:hebb_CLI"
-
-[build-system]
-requires = ["setuptools >= 77.0.3"]
-build-backend = "setuptools.build_meta"
