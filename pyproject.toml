@@ -1,10 +1,19 @@
 [project]
 name = "hebb"
-description = "Halo Extreme Block Bootstrap package to estimate the largest halo mass given the field of view and redshift depth of a survey"
 version = "0.2"
 authors = [
     { name = "Andrea Negri", email = "anegri@us.es" }
 ]
+readme = "README.md"
+description = "Halo Extreme Block Bootstrap package to estimate the largest halo mass given the field of view and redshift depth of a survey"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "BSD-3-clause"
+license-files = ["LICEN[CS]E*"]
+
+
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
@@ -14,7 +23,18 @@ dependencies = [
     "numba",
     "scipy",
     "pathlib",
+    "matplotlib",
     ]
+
+[project.optional-dependencies]
+
+[project.urls]
+Homepage = "https://github.com/NegriAndrea/hebb"
+Issues = "https://github.com/NegriAndrea/hebb/issues"
 
 [project.scripts]
 hebb = "hebb.hebb_cli:hebb_CLI"
+
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
