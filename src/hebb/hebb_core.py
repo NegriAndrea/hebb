@@ -3,12 +3,12 @@
 import numpy as np
 import h5py
 from pathlib import PurePath
-from astropy.table import Table
 import astropy.units as u
 import astropy.cosmology.units as cu
 u.add_enabled_units(cu)
 import numpy as np
 from numba import njit
+from scipy import spatial
 
 def comov_volume(area, z1, z2):
     """
@@ -96,14 +96,15 @@ def bootstrap_brute_force(Nboxes, BoxSize, newL, coords, centers, mass, fileNr, 
     Mmax = np.zeros(Nboxes)
     fileNrMax = np.zeros(Nboxes, dtype=fileNr.dtype)
     subNrMax = np.zeros(Nboxes, dtype=subNr.dtype)
-    t=[]
 
     for j in range(Nboxes):
 
         dx, dy, dz = dL(coords, centers[j,:], BoxSize)
         mask = (np.abs(dx) < newL) & (np.abs(dy) < newL) & (np.abs(dz) < newL)
 
-        assert np.count_nonzero(mask) > 0
+        if np.count_nonzero(mask) == 0:
+            raise ValueError('Hitting an empty region, in case you used -M try'
+                             ' to lower (or omit) the mass cut')
         mass_tmp = mass[mask]
         fileNr_tmp = fileNr[mask]
         subNr_tmp = subNr[mask]
@@ -116,8 +117,11 @@ def bootstrap_brute_force(Nboxes, BoxSize, newL, coords, centers, mass, fileNr, 
 
     return Mmax, fileNrMax, subNrMax
 
-def bootstrap_kdtree(Nboxes, BoxSize, newL, coords, centers, mass, fileNr, subNr):
-    from scipy import spatial
+def bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords, centers, mass, fileNr, subNr):
+    """
+    Do a search using a double KDTree and perform a block bootstrap.
+
+    """
 
     Mmax = np.zeros(Nboxes)
     fileNrMax = np.zeros(Nboxes, dtype=fileNr.dtype)
@@ -130,7 +134,9 @@ def bootstrap_kdtree(Nboxes, BoxSize, newL, coords, centers, mass, fileNr, subNr
     assert len(indexes) == Nboxes
     for j in range(Nboxes):
 
-        assert len(indexes[j]) > 0
+        if len(indexes[j]) == 0:
+            raise ValueError('Hitting an empty region, in case you used -M try'
+                             ' to lower (or omit) the mass cut')
         ind = np.array(indexes[j],
                              dtype=np.min_scalar_type(coords.shape[0]))
         mass_tmp = mass[ind]
@@ -144,19 +150,54 @@ def bootstrap_kdtree(Nboxes, BoxSize, newL, coords, centers, mass, fileNr, subNr
 
     return Mmax, fileNrMax, subNrMax
 
+def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
+                            fileNr, subNr, leafsize=128):
+    """
+    Do a search using a single KDTree and perform a block bootstrap. Better
+    than the double one since the centers are uniformly seeded in the volume,
+    and it can be parallelized
+
+    """
+
+    Mmax = np.zeros(Nboxes)
+    fileNrMax = np.zeros(Nboxes, dtype=fileNr.dtype)
+    subNrMax = np.zeros(Nboxes, dtype=subNr.dtype)
+
+    tree = spatial.KDTree(coords, boxsize=BoxSize, leafsize=leafsize)
+    dtype=np.min_scalar_type(coords.shape[0])
+
+    for j in range(Nboxes):
+        ind = np.array(tree.query_ball_point(centers[j,:], newL, p=np.inf, workers=-1), dtype=dtype)
+
+        if ind.size == 0:
+            raise ValueError('Hitting an empty region, in case you used -M try'
+                             ' to lower (or omit) the mass cut')
+
+        mass_tmp = mass[ind]
+        fileNr_tmp = fileNr[ind]
+        subNr_tmp = subNr[ind]
+
+        index = np.argmax(mass_tmp)
+        Mmax[j] = mass_tmp[index]
+        fileNrMax[j] = fileNr_tmp[index]
+        subNrMax[j] = subNr_tmp[index]
+
+    return Mmax, fileNrMax, subNrMax
 
 
-def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0):
+
+def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
+         leafsize=128):
     from .uchuu_snaps_z import uchuu_snap_list
 
     snapNr_list, z = uchuu_snap_list()
     snapNr = snapNr_list[np.abs(z - z_target).argmin()]
 
-    # Boxsize in cMpc
+    # Boxsize in cMpc, the factor is needed due to conversion from float64 to
+    # float32
     BoxSize = 2000/0.6774*1.00000001
 
     with h5py.File(PurePath(path_data)/f'catalogue_uchuu.hdf5', 'r') as ff:
-        # coordinates in cMpc, masses in Msun
         coords = ff[f'S-{snapNr}/Coordinates'][()]
         mass= ff[f'S-{snapNr}/M200c'][()]
         fileNr = ff[f'S-{snapNr}/fileNr'][()]
@@ -182,17 +223,17 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0):
     if v>0:
         print(f"V={8*newL**3:3e} cMpc^3,  L={newL*2:3f} cMpc")
 
-    # shoot (Nboxes,3) random numbers between 0 and boxsize
+    # shoot (Nboxes,3) random numbers between 0 and BoxSize
     rng = np.random.default_rng()
     centers=rng.random(size=(Nboxes,3), dtype=np.float32)
     centers*=BoxSize
 
+
     # Mmax, fileNrMax, subNrMax = bootstrap_brute_force(Nboxes, BoxSize, newL, coords,
                                           # centers, mass, fileNr, subNr)
-    Mmax, fileNrMax, subNrMax = bootstrap_kdtree(Nboxes, BoxSize, newL, coords,
-                                          centers, mass, fileNr, subNr)
-
-    t=Table([Mmax, fileNrMax, subNrMax], names=['M200', 'fileNr', 'subNr'])
-    t.write('table_max.txt', format='ascii.ecsv', overwrite=True)
+    # Mmax, fileNrMax, subNrMax = bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords,
+                                          # centers, mass, fileNr, subNr)
+    Mmax, fileNrMax, subNrMax = bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords,
+                                          centers, mass, fileNr, subNr, leafsize=lf)
 
     return Mmax, fileNrMax, subNrMax
