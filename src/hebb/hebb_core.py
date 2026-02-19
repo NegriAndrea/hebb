@@ -234,6 +234,7 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
     # Mmax, fileNrMax, subNrMax = bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords,
                                           # centers, mass, fileNr, subNr)
     Mmax, fileNrMax, subNrMax = bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords,
-                                          centers, mass, fileNr, subNr, leafsize=lf)
+                                                        centers, mass, fileNr, subNr,
+                                                        leafsize=leafsize)
 
     return Mmax, fileNrMax, subNrMax

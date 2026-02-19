@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# import numpy as np
-# import matplotlib.pyplot as plt
-# import h5py
-# from pathlib import PurePath
 from .hebb_core import hebb
+from .hebb_trace import hebb_trace
 
 def hebb_CLI():
     import numpy as np
@@ -18,9 +15,9 @@ def hebb_CLI():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('Nboxes', type=int, help='Number of boxes for bootstrap')
     parser.add_argument('z_target', type=float, help='Number of sampling')
-    parser.add_argument('z_min', type=float, help='')
-    parser.add_argument('z_max', type=float, help='')
-    parser.add_argument('fov', type=float, help='FOV in arcmin^2')
+    parser.add_argument('z_min', type=float, help='Survey min z (used to compute box volume)')
+    parser.add_argument('z_max', type=float, help='Survey max z (used to compute box volume)')
+    parser.add_argument('fov', type=float, help='FOV in arcmin^2 (used to compute box volume)')
 
     parser.add_argument('-v', action='count', default=0,
                         help='verbosity level [%(default)d]')
@@ -56,8 +53,28 @@ def hebb_CLI():
         plt.hist(Mmax, 50)
         plt.show()
 
-    if args.table:
+    if args.t:
         from astropy.table import Table
         t=Table([Mmax, fileNrMax, subNrMax], names=['M200', 'fileNr', 'subNr'])
         t.write('table_max.txt', format='ascii.ecsv', overwrite=True)
 
+def hebb_trace_CLI():
+    import argparse
+
+    description = ("Trace back galaxies found with hebb.")
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('hebbTable', type=str, help='Data table produced by hebb')
+    parser.add_argument('z_target', type=float, help='Target redshift')
+    parser.add_argument('treePath', type=str, help='Path of the merger tree file')
+
+
+    parser.add_argument('-v', action='count', default=0,
+                        help='verbosity level [%(default)d]')
+
+    args = parser.parse_args()
+
+    finalT = hebb_trace(args.hebbTable, args.treePath, args.z_target)
+
+
+    t.write('hebb_traceback.txt', format='ascii.ecsv', overwrite=True)

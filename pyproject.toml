@@ -41,3 +41,4 @@ Issues = "https://github.com/NegriAndrea/hebb/issues"
 
 [project.scripts]
 hebb = "hebb.hebb_cli:hebb_CLI"
+hebb-tr = "hebb.hebb_cli:hebb_trace_CLI"
