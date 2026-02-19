@@ -159,7 +159,7 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
 
     """
 
-    Mmax = np.zeros(Nboxes)
+    Mmax = np.zeros(Nboxes, dtype=mass.dtype)
     fileNrMax = np.zeros(Nboxes, dtype=fileNr.dtype)
     subNrMax = np.zeros(Nboxes, dtype=subNr.dtype)
 

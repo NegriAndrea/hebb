@@ -56,6 +56,7 @@ def hebb_CLI():
     if args.t:
         from astropy.table import Table
         t=Table([Mmax, fileNrMax, subNrMax], names=['M200', 'fileNr', 'subNr'])
+        t.sort(['fileNr', 'subNr'])
         t.write('table_max.txt', format='ascii.ecsv', overwrite=True)
 
 def hebb_trace_CLI():
@@ -74,7 +75,7 @@ def hebb_trace_CLI():
 
     args = parser.parse_args()
 
-    finalT = hebb_trace(args.hebbTable, args.treePath, args.z_target)
+    finalT = hebb_trace(args.hebbTable, args.treePath, args.z_target, args.v)
 
 
-    t.write('hebb_traceback.txt', format='ascii.ecsv', overwrite=True)
+    finalT.write('hebb_traceback.txt', format='ascii.ecsv', overwrite=True)

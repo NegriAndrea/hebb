@@ -26,7 +26,7 @@ def unique_ordered(x):
 
     return unique, off, dim
 
-def hebb_trace(tableName, mergerTreePath, targetZ):
+def hebb_trace(tableName, mergerTreePath, targetZ, v):
     """
     Trace back galaxies found with hebb.
 
@@ -42,13 +42,18 @@ def hebb_trace(tableName, mergerTreePath, targetZ):
     from .uchuu_snaps_z import uchuu_snap_list
 
     snapNr_list, z = uchuu_snap_list()
-    targetSnapNr = snapNr_list[np.abs(z - z_target).argmin()]
+    targetSnapNr = snapNr_list[np.abs(z - targetZ).argmin()]
 
     t = Table.read(tableName, format='ascii.ecsv')
 
     t.sort(['fileNr', 'subNr'])
 
     UfileNr, off, size = unique_ordered(t['fileNr'])
+
+    if v>1:
+        tmp = Table([UfileNr, size], names=['MergTreeID', 'Nhalos'])
+        print(tmp)
+        del tmp
 
     fullT = []
     fileNr_original = []
@@ -60,12 +65,16 @@ def hebb_trace(tableName, mergerTreePath, targetZ):
         # table containing only files related to 1 merger tree file
         subt = t[o:o+s]
 
-        fileMT = PurePath(mergerTreePath) / f'mergerTree_{jMT}.hdf5'
+        fileMT = PurePath(mergerTreePath) / f'mergertree_{jMT}.h5'
 
+        if v>0:
+            print(f'Read {fileMT}')
         # in case I want the position, use newFields=['Pos']
         tree = hpy.forestCT(fileMT, newFields=[])
 
         for sNr in subt['subNr']:
+            if v>0:
+                print(f'Doing {sNr}')
 
             try:
                 # depends what I want to find, in this case the progenitor
@@ -74,14 +83,16 @@ def hebb_trace(tableName, mergerTreePath, targetZ):
                                         t=True, raiseError=True)
 
                 # filter to get the target I want
-                fullT.append(tHist[tHist['snapNr'] == targetSnapNr])
+                fullT.append(tHist[tHist['SnapNr'] == targetSnapNr])
                 fileNr_original.append(jMT)
                 subNr_original.append(sNr)
             except hpy.NoProgenitorError:
                 pass
 
     fullT = vstack(fullT)
-    fullT['fileNr_original'] = np.concatenate(fileNr_original)
-    fullT['subNr_original'] = np.concatenate(subNr_original)
+    fullT['fileNr_original'] = np.array(fileNr_original,
+            dtype=t['fileNr'].dtype)
+    fullT['subNr_original'] = np.array(subNr_original,
+            dtype=t['subNr'].dtype)
 
     return fullT
