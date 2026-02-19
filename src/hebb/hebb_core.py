@@ -193,15 +193,17 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
     snapNr_list, z = uchuu_snap_list()
     snapNr = snapNr_list[np.abs(z - z_target).argmin()]
 
-    # Boxsize in cMpc, the factor is needed due to conversion from float64 to
-    # float32
-    BoxSize = 2000/0.6774*1.00000001
+    # Boxsize in cMpc
+    BoxSize = 2000/0.6774
 
     with h5py.File(PurePath(path_data)/f'catalogue_uchuu.hdf5', 'r') as ff:
         coords = ff[f'S-{snapNr}/Coordinates'][()]
         mass= ff[f'S-{snapNr}/M200c'][()]
         fileNr = ff[f'S-{snapNr}/fileNr'][()]
         subNr = ff[f'/S-{snapNr}/SubNr'][()]
+        bin_size = BoxSize/65_535
+
+    coords=coords.astype(np.float32)*bin_size
 
 
     if M is not None:
