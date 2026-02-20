@@ -6,6 +6,12 @@ from .hebb_trace import hebb_trace
 def hebb_CLI():
     import numpy as np
     import argparse
+    import os
+
+    try:
+        def_path = os.environ['HEBB_DB_PATH']
+    except KeyError:
+        def_path = '~/hebb_data'
 
     description = (
             'Compute the heaviest dark matter halo that you can find in a given '
@@ -22,7 +28,7 @@ def hebb_CLI():
     parser.add_argument('-v', action='count', default=0,
                         help='verbosity level [%(default)d]')
     parser.add_argument('-p', type=str, help='Path of the catalogue file'
-                        ' [default: %(default)s]', default='~/hebb_data')
+                        ' [default: %(default)s]', default=def_path)
     parser.add_argument('-t', action='store_true', help='Create a table with'
                         ' the sampled haloes')
     parser.add_argument('--plot', action='store_true', help='show a plot of the M200 distribution')
