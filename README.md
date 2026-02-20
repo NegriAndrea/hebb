@@ -20,9 +20,10 @@ python3 -m pip install -e .
 ### Database Setup
 In addition to installing the Python package, you must download a reduced version of the Uchuu database. In order to keep the file size manageble the databse contains only the strictly necessary data; the halo positions have been binned on a 40 kpc gridsize and stored as `uint16` integer, the total size is 40 GB.
 
-To enable `hebb` to find the database you can set the environment variable in your bashrc
+To enable `hebb` to find the database you can set the environment variable in your `~/.bash_profile`
 ```
-export HEBB_DB_PATH=/path/to/database
+# bash
+HEBB_DB_PATH=/path/to/database
 ```
 where you have to change `/path/to/database` to the path of the downloaded database.
 
