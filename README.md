@@ -1,5 +1,5 @@
 # hebb
-Halo Extreme Block Bootstrap package to estimate the largest halo mass you can find in a survery at a given redshift.
+Halo Extreme Block Bootstrap package to estimate the distribution of heaviest halo mass you can find in a survery at a given redshift.
 
 `hebb` uses as a basedata the Uchuu simulation halo catalogue (https://skiesanduniverses.org/Simulations/Uchuu) to perform a block bootstrap by shooting N boxes of a volume equal of the estimated volume of a survey, and recovering the largest halo formed at a particular z, with an uncertainty estimate. The volume of the survey is computed given the survey's field of view and redshift depth, or manually selected. Optionally, the code can dump the list of halo found in the search, which can be used to perform a trace back in time with the Uchuu merger tree.
 
@@ -18,14 +18,17 @@ python3 -m pip install -e .
 ```
 
 ### Database Setup
-In addition to installing the Python package, you must download a reduced version of the Uchuu database. In order to keep the file size manageble the databse contains only the strictly necessary data; the halo positions have been binned on a 40 kpc gridsize and stored as `uint16` integer, the total size is 40 GB.
-
-To enable `hebb` to find the database you can set the environment variable in your `~/.bash_profile`
+In addition to installing the Python package, you must download a reduced version of the Uchuu database (~40 GB). To set the database path you can define the following environment variable in your `~/.bash_profile`
 ```
 # bash
-HEBB_DB_PATH=/path/to/database
+export HEBB_DB_PATH=/path/to/database
 ```
 where you have to change `/path/to/database` to the path of the downloaded database.
+
+NOTE: In order to keep the file size manageble the database contains only log10(M200), positions and merger tree IDs; the halo positions have been binned on a 40 ckpc gridsize and stored as `uint16` integer, which is precise enough for volumes that are usually way larger than 1 cMpc.
+
+## Usage
+The simplest way to use `hebb` is via command line, `hebb -h` returns the user manual:
 
 
 
