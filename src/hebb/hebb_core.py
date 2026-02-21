@@ -196,24 +196,37 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
     # Boxsize in cMpc
     BoxSize = 2000/0.6774
 
+    if v>0:
+        print(f"Reading {PurePath(path_data)/'catalogue_uchuu.hdf5'}")
+
     with h5py.File(PurePath(path_data)/f'catalogue_uchuu.hdf5', 'r') as ff:
-        coords = ff[f'S-{snapNr}/Coordinates'][()]
-        mass= ff[f'S-{snapNr}/M200c'][()]
-        fileNr = ff[f'S-{snapNr}/fileNr'][()]
-        subNr = ff[f'/S-{snapNr}/SubNr'][()]
+
+        # the catalogue is sorted in M200, with histograms to load only the
+        # haloes above a certain mass without having to read the full dataset
+        # if not needed
+        if M is None:
+            offset = 0
+        else:
+            m200_indexes = ff[f'S-{snapNr}/M200_indexes'][()]
+            m200_bins_edges = ff[f'S-{snapNr}/M200c_bins_edges'][()]
+            if np.log10(M) < m200_bins_edges[0]:
+                raise ValueError(f"The requested mass {M=:.2e} Msun is too low for "
+                                 f"z={z_target}, database min mass at this z "
+                                 f"is {10.**float(m200_bins_edges[0]):.2e} Msun")
+            tmp = np.searchsorted(m200_bins_edges, np.log10(M))
+            offset = int(m200_indexes[max(tmp-1,0)])
+
+        coords = ff[f'S-{snapNr}/Coordinates'][offset:]
+        mass= ff[f'S-{snapNr}/M200c'][offset:]
+        fileNr = ff[f'S-{snapNr}/fileNr'][offset:]
+        subNr = ff[f'/S-{snapNr}/SubNr'][offset:]
         bin_size = BoxSize/65_535
 
     coords=coords.astype(np.float32)*bin_size
 
-
-    if M is not None:
-        mask = mass>np.log10(M)
-
-        mass=mass[mask]
-        coords=coords[mask].astype(np.float64)
-        subNr = subNr[mask]
-        fileNr = fileNr[mask]
-        del mask
+    if v>0:
+        print(f"READ log(M200/Msun): min={mass[0]:.2f},"
+              f" max={mass[-1]:.2f}")
 
     if L is None:
         # for surveys
