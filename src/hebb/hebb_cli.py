@@ -78,10 +78,14 @@ def hebb_trace_CLI():
 
     parser.add_argument('-v', action='count', default=0,
                         help='verbosity level [%(default)d]')
+    parser.add_argument('-s', action='store_true',
+                        help='Use the code in serial, without the need of MPI')
 
     args = parser.parse_args()
 
-    finalT = hebb_trace(args.hebbTable, args.treePath, args.z_target, args.v)
+    finalT, mpirank = hebb_trace(args.hebbTable, args.treePath, args.z_target,
+            args.v, args.s)
 
 
-    finalT.write('hebb_traceback.txt', format='ascii.ecsv', overwrite=True)
+    if mpirank == 0:
+        finalT.write('hebb_traceback.txt', format='ascii.ecsv', overwrite=True)
