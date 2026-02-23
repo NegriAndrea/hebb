@@ -28,6 +28,7 @@ dependencies = [
     "numba",
     "scipy",
     "matplotlib",
+    "mpi4py",
     ]
 
 dynamic = ["version"]

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from astropy.table import Table, vstack
+import helperspy as hpy
 
 def unique_ordered(x):
     """
@@ -26,18 +28,51 @@ def unique_ordered(x):
 
     return unique, off, dim
 
-def hebb_trace(tableName, mergerTreePath, targetZ, v):
+def hebb_trace(tableName, mergerTreePath, targetZ, v, serial):
+
+    if serial:
+        # do it serially
+        t = Table.read(tableName, format='ascii.ecsv')
+        return (hebb_trace_single(tableName, mergerTreePath, targetZ, v, 0,
+                len(t)),0)
+    else:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        size = comm.Get_size()
+
+        t = Table.read(tableName, format='ascii.ecsv')
+        t.sort(['fileNr'])
+
+        offset, sizes = hpy.chopArray(len(t), size)
+
+        i_begin = offset[rank]
+        i_end = sizes[rank]+i_begin
+
+        local_t = hebb_trace_single(tableName,
+                mergerTreePath, targetZ, v, i_begin, i_end)
+
+        all_tables = comm.gather(local_t, root=0)
+
+        if rank == 0:
+            final_table = vstack(all_tables)
+            return final_table, rank
+        else:
+            return None, rank
+
+
+
+
+def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end):
     """
     Trace back galaxies found with hebb.
 
     """
     import numpy as np
     from pathlib import PurePath
-    from astropy.table import Table, vstack
     import astropy.units as u
     import astropy.cosmology.units as cu
     u.add_enabled_units(cu)
-    import helperspy as hpy
 
     from .uchuu_snaps_z import uchuu_snap_list
 
@@ -45,6 +80,7 @@ def hebb_trace(tableName, mergerTreePath, targetZ, v):
     targetSnapNr = snapNr_list[np.abs(z - targetZ).argmin()]
 
     t = Table.read(tableName, format='ascii.ecsv')
+    t=t[i_begin:i_end]
 
     t.sort(['fileNr', 'subNr'])
 
@@ -86,8 +122,9 @@ def hebb_trace(tableName, mergerTreePath, targetZ, v):
                 fullT.append(tHist[tHist['SnapNr'] == targetSnapNr])
                 fileNr_original.append(jMT)
                 subNr_original.append(sNr)
-            except hpy.NoProgenitorError:
-                pass
+            except hpy.CTNoProgenitorError:
+                if v>1:
+                    print('NoProgenitor')
 
     fullT = vstack(fullT)
     fullT['fileNr_original'] = np.array(fileNr_original,
