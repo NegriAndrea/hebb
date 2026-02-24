@@ -3,7 +3,7 @@ Halo Extreme Block Bootstrap package to estimate the distribution of heaviest ha
 
 `hebb` uses as a basedata the Uchuu simulation halo catalogue (https://skiesanduniverses.org/Simulations/Uchuu) to perform a block bootstrap by shooting N boxes of a volume equal of the estimated volume of a survey, and recovering the largest halo formed at a particular z, with an uncertainty estimate. The volume of the survey is computed given the survey's field of view and redshift depth, or manually selected. Optionally, the code can dump the list of halo found in the search, which can be used to perform a trace back in time with the Uchuu merger tree.
 
-Please cite the following papers if you use `hebb` in your work: Negri & Belli (2026), Ishiyama et al. (2021) (Uchuu Data Release 1).
+Please cite the following papers if you use `hebb` in your work: Negri & Belli (2026), [Ishiyama et al. (2021)](https://ui.adsabs.harvard.edu/abs/2021MNRAS.506.4210I) (Uchuu Data Release 1).
 
 ## Installation
 There are 2 ways to install `hebb`: via `PyPI`
