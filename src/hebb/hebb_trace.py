@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from astropy.table import Table, vstack
-import helperspy as hpy
 
 def unique_ordered(x):
     """
@@ -36,6 +35,7 @@ def hebb_trace(tableName, mergerTreePath, targetZ, v, serial):
         return (hebb_trace_single(tableName, mergerTreePath, targetZ, v, 0,
                 len(t)),0)
     else:
+        import helperspy as hpy
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -73,6 +73,7 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end):
     import astropy.units as u
     import astropy.cosmology.units as cu
     u.add_enabled_units(cu)
+    import helperspy as hpy
 
     from .uchuu_snaps_z import uchuu_snap_list
 
