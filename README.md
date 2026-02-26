@@ -27,6 +27,12 @@ where you have to change `/path/to/database` to the path of the downloaded datab
 
 NOTE: In order to keep the file size manageble the database contains only log10(M200), positions and merger tree IDs; the halo positions have been binned on a 40 ckpc gridsize and stored as `uint16` integer, which is precise enough for volumes that are usually way larger than 1 cMpc.
 
+### Test installation
+The easiest way to test if everything is correctly installed and set up is to run the command
+```
+hebb 100 0. -L 1000 -M 1e14
+```
+
 ## Usage
 The simplest way to use `hebb` is via command line, `hebb -h` returns the user manual:
 
