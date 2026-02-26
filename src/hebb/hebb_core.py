@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import h5py
-from pathlib import PurePath
+from pathlib import PurePath, Path
 import astropy.units as u
 import astropy.cosmology.units as cu
 u.add_enabled_units(cu)
@@ -196,10 +196,19 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
     # Boxsize in cMpc
     BoxSize = 2000/0.6774
 
-    if v>0:
-        print(f"Reading {PurePath(path_data)/'catalogue_uchuu.hdf5'}")
+    catFileName = Path(path_data)/f'catalogue_uchuu.hdf5'
+    if not catFileName.is_file():
+        catFileName = Path(path_data)/f'catalogue_uchuu_light.hdf5'
 
-    with h5py.File(PurePath(path_data)/f'catalogue_uchuu.hdf5', 'r') as ff:
+    if not catFileName.is_file():
+        raise IOError('I cannot locate the catalogue file, I have tried'
+                      f"{Path(path_data)/f'catalogue_uchuu.hdf5'}"
+                      f" and {Path(path_data)/f'catalogue_uchuu_light.hdf5'}")
+
+    if v>0:
+        print(f"Reading {catFileName}")
+
+    with h5py.File(catFileName, 'r') as ff:
 
         # the catalogue is sorted in M200, with histograms to load only the
         # haloes above a certain mass without having to read the full dataset
