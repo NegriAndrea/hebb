@@ -11,7 +11,7 @@ def hebb_CLI():
     try:
         def_path = os.environ['HEBB_DB_PATH']
     except KeyError:
-        def_path = '~/hebb_data'
+        raise ValueError('The environment variable HEBB_DB_PATH must be set')
 
     description = (
             'Compute the heaviest dark matter halo that you can find in a given '
@@ -21,20 +21,28 @@ def hebb_CLI():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('Nboxes', type=int, help='Number of boxes for bootstrap')
     parser.add_argument('z_target', type=float, help='Number of sampling')
-    parser.add_argument('z_min', type=float, help='Survey min z (used to compute box volume)')
-    parser.add_argument('z_max', type=float, help='Survey max z (used to compute box volume)')
-    parser.add_argument('fov', type=float, help='FOV in arcmin^2 (used to compute box volume)')
+    # parser.add_argument('z_min', type=float, help='Survey min z (used to compute box volume)')
+    # parser.add_argument('z_max', type=float, help='Survey max z (used to compute box volume)')
+    # parser.add_argument('fov', type=float, help='FOV in arcmin^2 (used to compute box volume)')
+
+    # requiredNamed = parser.add_argument_group('required named arguments')
+    group = parser.add_argument_group( "Processing mode (required, mutually exclusive)")
+    group_container = group.add_mutually_exclusive_group(required=True)
+    group_container.add_argument('--survey', nargs=3, type=float,
+                                 help='Survey min z, max z, fov in arcmin^2'
+                                 ' (used to compute box volume)',
+                                 metavar=("z_min", "z_max", "fov"))
+    group_container.add_argument('-L', type=float, help='Size of the box in cMpc,'
+                        ' overrides the boxsize computation from the FOV')
 
     parser.add_argument('-v', action='count', default=0,
                         help='verbosity level [%(default)d]')
-    parser.add_argument('-p', type=str, help='Path of the catalogue file'
-                        ' [default: %(default)s]', default=def_path)
+    # parser.add_argument('-p', type=str, help='Path of the catalogue file'
+                        # ' [default: %(default)s]', default=def_path)
     parser.add_argument('-t', action='store_true', help='Create a table with'
                         ' the sampled haloes')
     parser.add_argument('--plot', action='store_true', help='show a plot of the M200 distribution')
 
-    parser.add_argument('-L', type=float, help='Size of the box in cMpc,'
-                        ' overrides the boxsize computation from the FOV')
     parser.add_argument('-M', type=float, help='OPTIMIZATION: Database mass'
                         ' cut, greatly speed up the search but you can incour'
                         ' into empty boxes [default: None]')
@@ -45,14 +53,23 @@ def hebb_CLI():
 
     args = parser.parse_args()
 
+    if args.survey is None:
+        z1 = None
+        z2 = None
+        fov = None
+    else:
+        z1  = args.survey[0]
+        z2  = args.survey[1]
+        fov = args.survey[2]
+
     Mmax, fileNrMax, subNrMax = hebb(args.z_target, args.Nboxes,
-                                     args.p, args.z_min, args.z_max, args.fov,
+                                     def_path, z1, z2, fov,
                                      L=args.L, M=args.M, v=args.v, leafsize =
                                      args.lf)
 
-    M16, M50, M86 = np.quantile(10.**Mmax, [0.16, 0.5, 0.86])
-    print(f"log10(M200) = {np.log10(M50)} _-{np.log(10)*(M50-M16)/M50} ^+{np.log(10)*(M86-M50)/M50}")
-    print(f"log10(M200) = {np.log10(M50):.2f} _-{np.log(10)*(M50-M16)/M50:.2f} ^+{np.log(10)*(M86-M50)/M50:.2f}")
+    M16, M50, M86 = np.quantile(10.**Mmax.astype(np.float64), [0.16, 0.5, 0.86])
+    print(f"log10(M200) = {np.log10(M50)} _-{(M50-M16)/M50/np.log(10)} ^+{(M86-M50)/M50/np.log(10)}")
+    print(f"log10(M200) = {np.log10(M50):.2f} _-{(M50-M16)/M50/np.log(10):.2f} ^+{(M86-M50)/M50/np.log(10):.2f}")
 
     if args.plot:
         import matplotlib.pyplot as plt
