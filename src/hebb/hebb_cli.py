@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from .hebb_core import hebb
+from .hebb_core import hebb, hebb_estimate
 from .hebb_trace import hebb_trace
 
 def hebb_CLI():
@@ -106,3 +106,32 @@ def hebb_trace_CLI():
 
     if mpirank == 0:
         finalT.write('hebb_traceback.txt', format='ascii.ecsv', overwrite=True)
+
+def hebb_estimate_CLI():
+    import numpy as np
+    import argparse
+    import os
+
+    try:
+        def_path = os.environ['HEBB_DB_PATH']
+    except KeyError:
+        raise ValueError('The environment variable HEBB_DB_PATH must be set')
+
+    description = (
+            'Estimate the smallest L at a certain z with a certain mass cut'
+            )
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('z_target', type=float, help='Number of sampling')
+    parser.add_argument('L', type=float, help='Size of the box in cMpc')
+
+    parser.add_argument('-v', action='count', default=0,
+                        help='verbosity level [%(default)d]')
+
+    parser.add_argument('-M', type=float, help='OPTIMIZATION: Database mass'
+                        ' cut, greatly speed up the search but you can incour'
+                        ' into empty boxes [default: None]')
+
+
+    args = parser.parse_args()
+
+    hebb_estimate(args.z_target, def_path, args.L, M=args.M, v=args.v)

@@ -262,3 +262,62 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
                                                         leafsize=leafsize)
 
     return Mmax, fileNrMax, subNrMax
+
+def hebb_estimate(z_target, path_data, L, M=None, v=0):
+    from .uchuu_snaps_z import uchuu_snap_list
+
+    snapNr_list, z = uchuu_snap_list()
+    snapNr = snapNr_list[np.abs(z - z_target).argmin()]
+
+    # Boxsize in cMpc
+    BoxSize = 2000/0.6774
+
+    catFileName = Path(path_data)/f'catalogue_uchuu.hdf5'
+    if not catFileName.is_file():
+        catFileName = Path(path_data)/f'catalogue_uchuu_light.hdf5'
+
+    if not catFileName.is_file():
+        raise IOError('I cannot locate the catalogue file, I have tried'
+                      f"{Path(path_data)/f'catalogue_uchuu.hdf5'}"
+                      f" and {Path(path_data)/f'catalogue_uchuu_light.hdf5'}")
+
+    if v>0:
+        print(f"Reading {catFileName}")
+
+    with h5py.File(catFileName, 'r') as ff:
+
+        # the catalogue is sorted in M200, with histograms to load only the
+        # haloes above a certain mass without having to read the full dataset
+        # if not needed
+        if M is None:
+            offset = 0
+        else:
+            m200_indexes = ff[f'S-{snapNr}/M200_indexes'][()]
+            m200_bins_edges = ff[f'S-{snapNr}/M200c_bins_edges'][()]
+            if np.log10(M) < m200_bins_edges[0]:
+                raise ValueError(f"The requested mass {M=:.2e} Msun is too low for "
+                                 f"z={z_target}, database min mass at this z "
+                                 f"is {10.**float(m200_bins_edges[0]):.2e} Msun")
+            tmp = np.searchsorted(m200_bins_edges, np.log10(M))
+            offset = int(m200_indexes[max(tmp-1,0)])
+
+        coords = ff[f'S-{snapNr}/Coordinates'][offset:]
+        mass= ff[f'S-{snapNr}/M200c'][offset:]
+        fileNr = ff[f'S-{snapNr}/fileNr'][offset:]
+        subNr = ff[f'/S-{snapNr}/SubNr'][offset:]
+        bin_size = BoxSize/65_535
+
+    coords=coords.astype(np.float32)*bin_size
+
+    if v>0:
+        print(f"READ log(M200/Msun): min={mass[0]:.2f},"
+              f" max={mass[-1]:.2f}")
+
+
+    for n in range(32):
+        nbins = 2**n
+        H, bins = np.histogramdd(coords, bins=nbins)
+        stop_cond = np.any(H==0)
+        print(f"L={BoxSize/nbins} {stop_cond}")
+        if stop_cond:
+            return
