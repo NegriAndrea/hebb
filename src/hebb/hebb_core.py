@@ -203,7 +203,8 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
     if not catFileName.is_file():
         raise IOError('I cannot locate the catalogue file, I have tried'
                       f"{Path(path_data)/f'catalogue_uchuu.hdf5'}"
-                      f" and {Path(path_data)/f'catalogue_uchuu_light.hdf5'}")
+                      f" and {Path(path_data)/f'catalogue_uchuu_light.hdf5'}"
+                      f" visit https://github.com/NegriAndrea/hebb"})
 
     if v>0:
         print(f"Reading {catFileName}")

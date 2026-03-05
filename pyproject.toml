@@ -1,8 +1,8 @@
 [build-system]
-requires = ["setuptools >= 77.0.3", "wheel", "setuptools-git-versioning"]
+requires = ["setuptools >= 77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
-[tool.setuptools-git-versioning]
-enabled = true
+#[tool.setuptools-git-versioning]
+#enabled = true
 
 [project]
 name = "hebb"
@@ -17,6 +17,7 @@ classifiers = [
 ]
 license = "BSD-3-clause"
 license-files = ["LICEN[CS]E*"]
+version = "0.6"
 
 
 requires-python = ">=3.10"
@@ -31,7 +32,7 @@ dependencies = [
     "mpi4py",
     ]
 
-dynamic = ["version"]
+#dynamic = ["version"]
 
 [project.optional-dependencies]
 
