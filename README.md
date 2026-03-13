@@ -18,7 +18,7 @@ python3 -m pip install -e .
 ```
 
 ### Database Setup
-In addition to installing the Python package, you must download a reduced version of the Uchuu database. Two versions are available, with a different cut in mass; a light [one][https://uses0-my.sharepoint.com/:u:/g/personal/anegri_us_es/IQCDx5T1XlTnSbM2YmYcFoYMATIk_pI1XKPzp4ycUJ6N12M?e=pDdoDg] (2.3 GB) and a more complete one (~40 GB) from [here](https://uses0-my.sharepoint.com/:u:/g/personal/anegri_us_es/IQBrGP-3e0xHR6pV0YkfCb1hAYS1KLSNnjmDvVb3H6ytsUA?e=fcudjY). To set the database path you can define the following environment variable in your `~/.bash_profile`
+In addition to installing the Python package, you must download a reduced version of the Uchuu database. Two versions are available, with a different cut in mass; a light [one](https://uses0-my.sharepoint.com/:u:/g/personal/anegri_us_es/IQCDx5T1XlTnSbM2YmYcFoYMATIk_pI1XKPzp4ycUJ6N12M?e=pDdoDg) (2.3 GB) and a more complete one (~40 GB) from [here](https://uses0-my.sharepoint.com/:u:/g/personal/anegri_us_es/IQBrGP-3e0xHR6pV0YkfCb1hAYS1KLSNnjmDvVb3H6ytsUA?e=fcudjY). To set the database path you can define the following environment variable in your `~/.bash_profile`
 ```
 # bash
 export HEBB_DB_PATH=/path/to/database
