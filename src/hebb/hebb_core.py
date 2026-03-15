@@ -187,7 +187,7 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
 
 
 def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
-         leafsize=128):
+         leafsize=128, force_light=False):
     from .uchuu_snaps_z import uchuu_snap_list
 
     snapNr_list, z = uchuu_snap_list()
@@ -197,14 +197,14 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
     BoxSize = 2000/0.6774
 
     catFileName = Path(path_data)/f'catalogue_uchuu.hdf5'
-    if not catFileName.is_file():
+    if not catFileName.is_file() or force_light:
         catFileName = Path(path_data)/f'catalogue_uchuu_light.hdf5'
 
     if not catFileName.is_file():
         raise IOError('I cannot locate the catalogue file, I have tried'
                       f"{Path(path_data)/f'catalogue_uchuu.hdf5'}"
                       f" and {Path(path_data)/f'catalogue_uchuu_light.hdf5'}"
-                      f" visit https://github.com/NegriAndrea/hebb"})
+                      f" visit https://github.com/NegriAndrea/hebb")
 
     if v>0:
         print(f"Reading {catFileName}")

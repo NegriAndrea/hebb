@@ -49,6 +49,8 @@ def hebb_CLI():
     parser.add_argument('--lf', type=int, help='OPTIMIZATION: Leafe size for'
                         ' each node of the KDTree [default: %(default)d]',
                         default=128)
+    parser.add_argument('--force-light', action='store_true', help='DEBUG: '
+                        'force the reading of the light catalogue first')
 
 
     args = parser.parse_args()
@@ -65,7 +67,7 @@ def hebb_CLI():
     Mmax, fileNrMax, subNrMax = hebb(args.z_target, args.Nboxes,
                                      def_path, z1, z2, fov,
                                      L=args.L, M=args.M, v=args.v, leafsize =
-                                     args.lf)
+                                     args.lf, force_light=args.force_light)
 
     M16, M50, M86 = np.quantile(10.**Mmax.astype(np.float64), [0.16, 0.5, 0.86])
     print(f"log10(M200) = {np.log10(M50)} _-{(M50-M16)/M50/np.log(10)} ^+{(M86-M50)/M50/np.log(10)}")
