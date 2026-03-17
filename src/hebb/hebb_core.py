@@ -151,7 +151,7 @@ def bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords, centers, mass, fileNr
     return Mmax, fileNrMax, subNrMax
 
 def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
-                            fileNr, subNr, leafsize=128):
+                            fileNr, subNr, leafsize=128, nn=1):
     """
     Do a search using a single KDTree and perform a block bootstrap. Better
     than the double one since the centers are uniformly seeded in the volume,
@@ -159,9 +159,9 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
 
     """
 
-    Mmax = np.zeros(Nboxes, dtype=mass.dtype)
-    fileNrMax = np.zeros(Nboxes, dtype=fileNr.dtype)
-    subNrMax = np.zeros(Nboxes, dtype=subNr.dtype)
+    Mmax = np.zeros((nn,Nboxes), dtype=mass.dtype)
+    fileNrMax = np.zeros((nn,Nboxes), dtype=fileNr.dtype)
+    subNrMax = np.zeros((nn,Nboxes), dtype=subNr.dtype)
 
     tree = spatial.KDTree(coords, boxsize=BoxSize, leafsize=leafsize)
     dtype=np.min_scalar_type(coords.shape[0])
@@ -169,8 +169,9 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
     for j in range(Nboxes):
         ind = np.array(tree.query_ball_point(centers[j,:], newL, p=np.inf, workers=-1), dtype=dtype)
 
-        if ind.size == 0:
-            raise ValueError('Hitting an empty region, in case you used -M try'
+        if ind.size < nn:
+            raise ValueError('Hitting a region with less than '
+                             f"{nn} subhalos, in case you used -M try"
                              ' to lower (or omit) the mass cut')
 
         mass_tmp = mass[ind]
@@ -178,16 +179,17 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
         subNr_tmp = subNr[ind]
 
         index = np.argmax(mass_tmp)
-        Mmax[j] = mass_tmp[index]
-        fileNrMax[j] = fileNr_tmp[index]
-        subNrMax[j] = subNr_tmp[index]
+        index = np.argsort(mass_tmp)[-nn:][::-1]
+        Mmax[:,j] = mass_tmp[index]
+        fileNrMax[:,j] = fileNr_tmp[index]
+        subNrMax[:,j] = subNr_tmp[index]
 
     return Mmax, fileNrMax, subNrMax
 
 
 
 def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
-         leafsize=128, force_light=False):
+         leafsize=128, force_light=False, nn = 1):
     from .uchuu_snaps_z import uchuu_snap_list
 
     snapNr_list, z = uchuu_snap_list()
@@ -260,7 +262,8 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
                                           # centers, mass, fileNr, subNr)
     Mmax, fileNrMax, subNrMax = bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords,
                                                         centers, mass, fileNr, subNr,
-                                                        leafsize=leafsize)
+                                                        leafsize=leafsize,
+                                                        nn=nn)
 
     return Mmax, fileNrMax, subNrMax
 
