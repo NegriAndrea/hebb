@@ -11,10 +11,12 @@ def hebb_CLI():
     try:
         def_path = os.environ['HEBB_DB_PATH']
     except KeyError:
-        raise ValueError('The environment variable HEBB_DB_PATH must be set')
+        raise ValueError('The environment variable HEBB_DB_PATH must be set.'
+                         ' Check the "Database Setup" section at'
+                         ' https://github.com/NegriAndrea/hebb')
 
     description = (
-            'Compute the heaviest dark matter halo that you can find in a given '
+            'Compute the N most massive dark matter haloes that you can find in a given '
             'survey with [z_min, z_max] and field-of-view by performing a '
             'non-parametric block bootstrap over the Uchuu (2/h cGpc)^3 run.'
             )
@@ -25,7 +27,7 @@ def hebb_CLI():
     group = parser.add_argument_group( "Processing mode (required, mutually exclusive)")
     group_container = group.add_mutually_exclusive_group(required=True)
     group_container.add_argument('--survey', nargs=3, type=float,
-                                 help='Survey min z, max z, fov in arcmin^2'
+                                 help='Survey min z, max z, FOV in arcmin^2'
                                  ' (used to compute box volume)',
                                  metavar=("z_min", "z_max", "fov"))
     group_container.add_argument('-L', type=float, help='Size of the box in cMpc,'
@@ -41,7 +43,7 @@ def hebb_CLI():
     parser.add_argument('--plot', action='store_true', help='Show a plot of the M200 distribution')
 
     parser.add_argument('-M', type=float, help='OPTIMIZATION: Database mass'
-                        ' cut, greatly speed up the search but you can incour'
+                        ' cut, greatly speed up the database loading and search but you can incur'
                         ' into empty boxes [default: None]')
     parser.add_argument('--lf', type=int, help='OPTIMIZATION: Leafe size for'
                         ' each node of the KDTree [default: %(default)d]',
@@ -103,10 +105,16 @@ def hebb_CLI():
 
         t=Table([Mmax, ordering, fileNrMax, subNrMax],
                 names=['M200', 'IndMostMassive', 'fileNr', 'subNr'])
+
         t['M200'].unit = u.dex(u.Msun)
+        t['IndMostMassive'].description = ('Rank of the halo in mass sorting'
+                            f" ([0..{args.n-1}], 0 is the most massive)")
+
         t.meta = {'Description':'Hebb result table','Nboxes':args.Nboxes,
-                  'z_target':args.z_target, '-n':args.n}
-        t.sort(['fileNr', 'subNr', 'IndMostMassive'])
+                  'z_target':args.z_target, '-n':args.n,
+                  '--survey':args.survey, '-L':args.L, '-M': args.M}
+
+        t.sort(['IndMostMassive', 'fileNr', 'subNr'])
         t.write('table_max.txt', format='ascii.ecsv', overwrite=True)
 
 def hebb_trace_CLI():
@@ -142,7 +150,9 @@ def hebb_estimate_CLI():
     try:
         def_path = os.environ['HEBB_DB_PATH']
     except KeyError:
-        raise ValueError('The environment variable HEBB_DB_PATH must be set')
+        raise ValueError('The environment variable HEBB_DB_PATH must be set.'
+                         ' Check the "Database Setup" section at'
+                         ' https://github.com/NegriAndrea/hebb')
 
     description = (
             'Estimate the smallest L at a certain z with a certain mass cut'
