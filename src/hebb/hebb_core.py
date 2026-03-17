@@ -7,7 +7,7 @@ import astropy.units as u
 import astropy.cosmology.units as cu
 u.add_enabled_units(cu)
 import numpy as np
-from numba import njit
+# from numba import njit
 from scipy import spatial
 
 def comov_volume(area, z1, z2):
@@ -25,7 +25,7 @@ def comov_volume(area, z1, z2):
 
     return newL
 
-@njit
+# @njit
 def dL(coord1, coord2_in, boxsize):
     """
     Computes the distance in a 3D periodic box between a set of coordinates and
@@ -90,7 +90,7 @@ def dL(coord1, coord2_in, boxsize):
 
     return dx, dy, dz
 
-@njit(parallel=True)
+# @njit(parallel=True)
 def bootstrap_brute_force(Nboxes, BoxSize, newL, coords, centers, mass, fileNr, subNr):
 
     Mmax = np.zeros(Nboxes)
