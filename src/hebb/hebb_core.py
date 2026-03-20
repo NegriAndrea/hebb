@@ -9,6 +9,17 @@ u.add_enabled_units(cu)
 import numpy as np
 # from numba import njit
 from scipy import spatial
+import logging
+from time import perf_counter
+
+logger = logging.getLogger(__name__)
+
+def loggerN(msg):
+    logger.info(msg)
+
+def loggerH(msg):
+    logger.info('')
+    logger.info(msg)
 
 def comov_volume(area, z1, z2):
     """
@@ -163,7 +174,14 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
     fileNrMax = np.zeros((nn,Nboxes), dtype=fileNr.dtype)
     subNrMax = np.zeros((nn,Nboxes), dtype=subNr.dtype)
 
+    t0 = perf_counter()
+    loggerH(f"KDtree: Building KDtree for fast search")
     tree = spatial.KDTree(coords, boxsize=BoxSize, leafsize=leafsize)
+    loggerN(f"KDtree: building time {perf_counter()-t0:.1f} s")
+
+    loggerH(f"BLOCK BOOTSTRAP: startig...")
+    t0 = perf_counter()
+
     dtype=np.min_scalar_type(coords.shape[0])
 
     for j in range(Nboxes):
@@ -184,11 +202,13 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
         fileNrMax[:,j] = fileNr_tmp[index]
         subNrMax[:,j] = subNr_tmp[index]
 
+    loggerN(f"BLOCK BOOTSTRAP: done, time {perf_counter()-t0:.1f} s")
+
     return Mmax, fileNrMax, subNrMax
 
 
 
-def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
+def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None,
          leafsize=128, force_light=False, nn = 1):
     from .uchuu_snaps_z import uchuu_snap_list
 
@@ -208,8 +228,8 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
                       f" and {Path(path_data)/f'catalogue_uchuu_light.hdf5'}"
                       f" visit https://github.com/NegriAndrea/hebb")
 
-    if v>0:
-        print(f"Reading {catFileName}")
+    loggerH(f"CATALOGUE: Reading {catFileName}")
+    t0 = perf_counter()
 
     with h5py.File(catFileName, 'r') as ff:
 
@@ -236,19 +256,21 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
 
     coords=coords.astype(np.float32)*bin_size
 
-    if v>0:
-        print(f"READ log(M200/Msun): min={mass[0]:.2f},"
-              f" max={mass[-1]:.2f}")
+    loggerN(f"CATALOGUE: reading time {perf_counter()-t0:.1f} s")
+    loggerN(f"CATALOGUE: log(M200/Msun): min={mass[0]:.2f},"
+          f" max={mass[-1]:.2f}")
 
     if L is None:
         # for surveys
         area = fov*(u.arcmin**2)
         newL = comov_volume(area,z1, z2).value/2 # in cMpc
+        loggerH(f"BOX: Estimated volume={8*newL**3:.3e} cMpc^3,  Box size "
+                f"L={newL*2:.3f} cMpc")
     else:
         newL = L/2.
+        loggerH(f"BOX: Volume={8*newL**3:.3e} cMpc^3,  Box size L={newL*2:.3f} cMpc")
 
-    if v>0:
-        print(f"Volume={8*newL**3:3e} cMpc^3,  Box size L={newL*2:3f} cMpc")
+
 
     # shoot (Nboxes,3) random numbers between 0 and BoxSize
     rng = np.random.default_rng()
@@ -285,8 +307,7 @@ def hebb_estimate(z_target, path_data, L, M=None, v=0):
                       f"{Path(path_data)/f'catalogue_uchuu.hdf5'}"
                       f" and {Path(path_data)/f'catalogue_uchuu_light.hdf5'}")
 
-    if v>0:
-        print(f"Reading {catFileName}")
+    loggerN(f"Reading {catFileName}")
 
     with h5py.File(catFileName, 'r') as ff:
 
@@ -313,9 +334,8 @@ def hebb_estimate(z_target, path_data, L, M=None, v=0):
 
     coords=coords.astype(np.float32)*bin_size
 
-    if v>0:
-        print(f"READ log(M200/Msun): min={mass[0]:.2f},"
-              f" max={mass[-1]:.2f}")
+    loggerN(f"READ log(M200/Msun): min={mass[0]:.2f},"
+          f" max={mass[-1]:.2f}")
 
 
     for n in range(32):
