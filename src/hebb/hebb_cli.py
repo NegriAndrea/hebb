@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from .hebb_core import hebb, hebb_estimate
 from .hebb_trace import hebb_trace
-from .utils import pretty_print
+from .utils import pretty_print, save_table
 import logging
 
 logging.basicConfig(
@@ -66,19 +66,16 @@ def hebb_CLI():
     args = parser.parse_args()
 
     if args.survey is None:
-        z1 = None
-        z2 = None
-        fov = None
+        survey = None
     else:
-        z1  = args.survey[0]
-        z2  = args.survey[1]
-        fov = args.survey[2]
+        survey = {'zmin': args.survey[0], 'zmax': args.survey[1], 'fov':
+                  args.survey[2]}
 
     if args.n < 1:
         raise ValueError('The value in -n needs to be a positive integer')
 
     Mmax, fileNrMax, subNrMax = hebb(args.z_target, args.Nboxes,
-                                     def_path, z1, z2, fov,
+                                     def_path, survey = survey,
                                      L=args.L, M=args.M, leafsize =
                                      args.lf, force_light=args.force_light,
                                      nn=args.n)
@@ -86,36 +83,7 @@ def hebb_CLI():
 
 
     if args.t:
-        import astropy.units as u
-        from astropy.table import Table
-        # unroll them
-        ordering = np.repeat(np.arange(Mmax.shape[0],
-                                       dtype=np.min_scalar_type(args.n)),
-                             Mmax.shape[1])
-
-        # alter shape instead to use np.reshape to force an error
-        # in case the code attempts to copy the arrays (should not happen)
-        fileNrMax.shape = fileNrMax.size
-        subNrMax.shape = subNrMax.size
-        ordering.shape = ordering.size
-        # take a view to have it 1d and not to mess with the plot below
-        # no copy is involved
-        Mmax1d = Mmax.view()
-        Mmax1d.shape = Mmax.size
-
-        t=Table([Mmax1d, ordering, fileNrMax, subNrMax],
-                names=['M200', 'MassRank', 'fileNr', 'subNr'])
-
-        t['M200'].unit = u.dex(u.Msun)
-        t['MassRank'].description = ('Rank of the halo in mass sorting'
-                            f" ([0..{args.n-1}], 0 is the most massive)")
-
-        t.meta = {'Description':'Hebb result table','Nboxes':args.Nboxes,
-                  'z_target':args.z_target, '-n':args.n,
-                  '--survey':args.survey, '-L':args.L, '-M': args.M}
-
-        t.sort(['MassRank', 'fileNr', 'subNr'])
-        t.write('table_max.txt', format='ascii.ecsv', overwrite=True)
+        save_table(Mmax, fileNrMax, subNrMax, args)
 
 
     if args.plot:

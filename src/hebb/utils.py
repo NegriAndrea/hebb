@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import argparse
 import numpy as np
 
 def pretty_print(Mmax: np.ndarray) -> None:
@@ -51,3 +52,66 @@ def pretty_print(Mmax: np.ndarray) -> None:
     print('')
     print('QUANTILES TABLE')
     print(t2)
+
+
+
+def save_table(Mmax: np.ndarray,
+               fileNrMax: np.ndarray,
+               subNrMax: np.ndarray,
+               args: argparse.Namespace) -> None:
+    """
+    Save bootstrap samples in a file.
+
+    Parameters
+    ----------
+    Mmax : np.ndarray of shape (NMassRanks, Nboxes)
+        A 2D array of floats representing the maximum halo masses
+        found in each bootstrap iteration. Units should be log10(M_sun).
+
+    fileNrMax: np.ndarray of shape (Nboxes,)
+        A 1D array of int containing the IDs of the merger tree files from
+        where the subhalos can be found
+
+    subNrMax: np.ndarray of shape (Nboxes,)
+        A 1D array of int containing the IDs of the subhalos  in merger tree
+        files from where the subhalos can be found
+
+    args: argparse of command line interface
+       The arguments of the command line interface, to be saved in the table
+       header
+
+    Returns
+    -------
+    None
+
+    """
+    import astropy.units as u
+    from astropy.table import Table
+
+    # compute rank in mass and boxID
+    massRank = np.repeat(np.arange(Mmax.shape[0]), Mmax.shape[1])
+    boxID = np.tile(np.arange(Mmax.shape[1]), Mmax.shape[0])
+
+    # alter shape instead to use np.reshape to force an error
+    # in case the code attempts to copy the arrays (should not happen)
+    fileNrMax.shape = fileNrMax.size
+    subNrMax.shape = subNrMax.size
+
+    # take a view to have it 1d and not to mess with the plot
+    # no copy is involved
+    Mmax1d = Mmax.view()
+    Mmax1d.shape = Mmax.size
+
+    t=Table([Mmax1d, massRank, boxID, fileNrMax, subNrMax],
+            names=['M200', 'MassRank', 'boxID', 'fileNr', 'subNr'])
+
+    t['M200'].unit = u.dex(u.Msun)
+    t['MassRank'].description = ('Rank of the halo in mass sorting'
+                        f" ([0..{args.n-1}], 0 is the most massive)")
+
+    t.meta = {'Description':'Hebb result table','Nboxes':args.Nboxes,
+              'z_target':args.z_target, '-n':args.n,
+              '--survey':args.survey, '-L':args.L, '-M': args.M}
+
+    t.sort(['MassRank', 'fileNr', 'subNr'])
+    t.write('table_max.txt', format='ascii.ecsv', overwrite=True)

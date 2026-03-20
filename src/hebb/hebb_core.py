@@ -208,9 +208,12 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
 
 
 
-def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None,
+def hebb(z_target, Nboxes, path_data, *, survey=None, L=None, M=None,
          leafsize=128, force_light=False, nn = 1):
     from .uchuu_snaps_z import uchuu_snap_list
+
+    if survey is None and L is None:
+        raise ValueError('L and survey cannot be both None')
 
     snapNr_list, z = uchuu_snap_list()
     snapNr = snapNr_list[np.abs(z - z_target).argmin()]
@@ -260,10 +263,11 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None,
     loggerN(f"CATALOGUE: log(M200/Msun): min={mass[0]:.2f},"
           f" max={mass[-1]:.2f}")
 
+    # L has a higher priority over survey
     if L is None:
         # for surveys
-        area = fov*(u.arcmin**2)
-        newL = comov_volume(area,z1, z2).value/2 # in cMpc
+        area = survey['fov']*(u.arcmin**2)
+        newL = comov_volume(area,survey['zmin'], survey['zmax']).value/2 # in cMpc
         loggerH(f"BOX: Estimated volume={8*newL**3:.3e} cMpc^3,  Box size "
                 f"L={newL*2:.3f} cMpc")
     else:
