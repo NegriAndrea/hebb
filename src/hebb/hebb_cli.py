@@ -2,6 +2,57 @@
 # -*- coding: utf-8 -*-
 from .hebb_core import hebb, hebb_estimate
 from .hebb_trace import hebb_trace
+import numpy as np
+
+def pretty_print(Mmax: np.ndarray) -> None:
+    """
+    Pretty print a summary of the bootstrap results and quantile table.
+
+    This function takes the extremal mass distribution and computes standard
+    quantiles to provide a human-readable summary of the hebb analysis.
+
+    Parameters
+    ----------
+    Mmax : np.ndarray of shape (NMassRanks, Nboxes)
+        A 2D array of floats representing the maximum halo masses
+        found in each bootstrap iteration. Units should be log10(M_sun).
+
+    Returns
+    -------
+    None
+
+    """
+    from astropy.table import Table
+    quantiles = np.array([0.16, 0.5, 0.86,
+                          0.05, 0.1, 0.25, .75, 0.9, 0.95])
+    quants = np.zeros((Mmax.shape[0], quantiles.size))
+
+    print('')
+    print('RESULTS')
+    for i in range(Mmax.shape[0]):
+        quants[i,:] = np.quantile(10.**Mmax[i,:].astype(np.float64),
+                                            quantiles)
+        M16, M50, M86 = quants[i,:3]
+        print(f"{i} log10(M200) = {np.log10(M50):.2f} _-{(M50-M16)/M50/np.log(10):.2f} ^+{(M86-M50)/M50/np.log(10):.2f}")
+
+    # build a quantile table and use astropy Table to do a pretty print
+    quants = np.log10(quants[:,[3,4,5,1,6,7,8]])
+    names=[str(q) for q in quantiles[[3,4,5,1,6,7,8]]]
+
+    t2=Table(quants, names=names)
+
+    # add MassRank column
+    t2.add_column(np.arange(quants.shape[0], dtype=np.uint8), name='MassRank',
+                  index=0)
+
+    # print only 2 decimals for floating point numbers
+    for cname in t2.colnames:
+        if t2[cname].info.dtype in ['<f4', '<f8']:
+            t2[cname].info.format = '6.2f'
+
+    print('')
+    print('QUANTILES TABLE')
+    print(t2)
 
 def hebb_CLI():
     import numpy as np
@@ -36,8 +87,6 @@ def hebb_CLI():
 
     parser.add_argument('-n', type=int, help='Track the N most massive haloes'
                         ' in each box (1 tracks only the most massive) [default: %(default)d]', default=1)
-    parser.add_argument('-v', action='count', default=0,
-                        help='Verbosity level [default: %(default)d]')
     parser.add_argument('-t', action='store_true', help='Create a table with'
                         ' the sampled haloes')
     parser.add_argument('--plot', action='store_true', help='Show a plot of the M200 distribution')
@@ -68,54 +117,57 @@ def hebb_CLI():
 
     Mmax, fileNrMax, subNrMax = hebb(args.z_target, args.Nboxes,
                                      def_path, z1, z2, fov,
-                                     L=args.L, M=args.M, v=args.v, leafsize =
+                                     L=args.L, M=args.M, v=1, leafsize =
                                      args.lf, force_light=args.force_light,
                                      nn=args.n)
+    pretty_print(Mmax)
 
-    for i in range(Mmax.shape[0]):
-        M16, M50, M86 = np.quantile(10.**Mmax[i,:].astype(np.float64), [0.16, 0.5, 0.86])
-        # print(f"log10(M200) = {np.log10(M50)} _-{(M50-M16)/M50/np.log(10)} ^+{(M86-M50)/M50/np.log(10)}")
-        print(f"{i} log10(M200) = {np.log10(M50):.2f} _-{(M50-M16)/M50/np.log(10):.2f} ^+{(M86-M50)/M50/np.log(10):.2f}")
-
-    if args.plot:
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        for i in range(Mmax.shape[0]):
-            hist, bins = np.histogram(Mmax[i,:], 50, range=[Mmax.min(), Mmax.max()])
-            ax.plot((bins[:-1]+bins[1:])/2, hist, label=f"{i}")
-        ax.set_ylabel('N halos')
-        ax.set_xlabel(r'$\log (M_{200}/M_\odot)$')
-        ax.legend(loc='best')
-        plt.show()
 
     if args.t:
-        from astropy.table import Table
         import astropy.units as u
+        from astropy.table import Table
         # unroll them
         ordering = np.repeat(np.arange(Mmax.shape[0],
                                        dtype=np.min_scalar_type(args.n)),
                              Mmax.shape[1])
 
-        # alter shape to force an error in case the code attempts to copy the
-        # arrays
+        # alter shape instead to use np.reshape to force an error
+        # in case the code attempts to copy the arrays (should not happen)
         fileNrMax.shape = fileNrMax.size
         subNrMax.shape = subNrMax.size
         ordering.shape = ordering.size
-        Mmax.shape = Mmax.size
+        # take a view to have it 1d and not to mess with the plot below
+        # no copy is involved
+        Mmax1d = Mmax.view()
+        Mmax1d.shape = Mmax.size
 
-        t=Table([Mmax, ordering, fileNrMax, subNrMax],
-                names=['M200', 'IndMostMassive', 'fileNr', 'subNr'])
+        t=Table([Mmax1d, ordering, fileNrMax, subNrMax],
+                names=['M200', 'MassRank', 'fileNr', 'subNr'])
 
         t['M200'].unit = u.dex(u.Msun)
-        t['IndMostMassive'].description = ('Rank of the halo in mass sorting'
+        t['MassRank'].description = ('Rank of the halo in mass sorting'
                             f" ([0..{args.n-1}], 0 is the most massive)")
 
         t.meta = {'Description':'Hebb result table','Nboxes':args.Nboxes,
                   'z_target':args.z_target, '-n':args.n,
                   '--survey':args.survey, '-L':args.L, '-M': args.M}
 
-        t.sort(['IndMostMassive', 'fileNr', 'subNr'])
+        t.sort(['MassRank', 'fileNr', 'subNr'])
         t.write('table_max.txt', format='ascii.ecsv', overwrite=True)
+
+
+    if args.plot:
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        Mmaxmin = Mmax.min()
+        Mmaxmax = Mmax.max()
+        for i in range(Mmax.shape[0]):
+            hist, bins = np.histogram(Mmax[i,:], 50, range=[Mmaxmin, Mmaxmax])
+            ax.plot((bins[:-1]+bins[1:])/2, hist, label=f"{i}")
+        ax.set_ylabel('N halos')
+        ax.set_xlabel(r'$\log (M_{200}/M_\odot)$')
+        ax.legend(loc='best')
+        plt.show()
 
 def hebb_trace_CLI():
     import argparse

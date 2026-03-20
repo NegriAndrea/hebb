@@ -248,7 +248,7 @@ def hebb(z_target, Nboxes, path_data, z1, z2, fov, L=None, M=None, v=0,
         newL = L/2.
 
     if v>0:
-        print(f"V={8*newL**3:3e} cMpc^3,  L={newL*2:3f} cMpc")
+        print(f"Volume={8*newL**3:3e} cMpc^3,  Box size L={newL*2:3f} cMpc")
 
     # shoot (Nboxes,3) random numbers between 0 and BoxSize
     rng = np.random.default_rng()
