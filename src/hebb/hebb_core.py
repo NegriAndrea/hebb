@@ -161,25 +161,75 @@ def bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords, centers, mass, fileNr
 
     return Mmax, fileNrMax, subNrMax
 
-def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
-                            fileNr, subNr, leafsize=128, nn=1):
+def bootstrap_kdtree_single(BoxSize, newL, coords, centers, mass,
+                            fileNr, subNr, leafsize=128, NMassRank=1):
     """
     Do a search using a single KDTree and perform a block bootstrap. Better
     than the double one since the centers are uniformly seeded in the volume,
     and it can be parallelized
 
+    Parameters
+    ----------
+    BoxSize: float
+        Size of the box of the numerical simulation in cMpc.
+
+    newL: float
+        Half size of the box to bootstrap in cMpc. This is used as the maximum
+        (Chebyshev) distance to find the subhaloes during a single iteration of
+        the bootstrap
+
+    coords: np.ndarray of shape(NSubHaloes, 3)
+        Subhalo coordinates from catalogue in cMpc.
+
+    centers: np.ndarray of shape(NBoxes, 3)
+        Center of boxes used for bootstrap.
+
+    mass: np.ndarray of shape(NSubHaloes,)
+        Subhalo masses in Msun.
+
+    fileNr: np.ndarray of shape(NSubHaloes,)
+        Merger tree file number of the subhaloes, it is sampled and given in
+        output for tracing a subhalo with the merger tree.
+
+    subNr: np.ndarray of shape(NSubHaloes,)
+        Subhalo number in a specific merger tree file, it is sampled and given in
+        output for tracing a subhalo with the merger tree.
+
+    leafsize: int, optional
+        Size of each leaf for the KDTree, increasing it speeds up the research.
+
+    NMassRank: int, optional
+        Max rank in mass to search. The bootstrap will track the NMassRank most
+        massive galaxies in each box.
+
+
+    Returns
+    -------
+
+    Mmax: np.ndarray of shape(NMassRank, Nboxes)
+        2D array of log10(M200/Msun) masses for all the mass ranks
+
+    fileNrMax: np.ndarray of shape(NMassRank, Nboxes)
+        2D array of merger tree file IDs for each halo for traceback
+
+    subNrMax: np.ndarray of shape(NMassRank, Nboxes)
+        2D array of subhalo IDs in each of the merger tree files for each halo for traceback
+
     """
 
-    Mmax = np.zeros((nn,Nboxes), dtype=mass.dtype)
-    fileNrMax = np.zeros((nn,Nboxes), dtype=fileNr.dtype)
-    subNrMax = np.zeros((nn,Nboxes), dtype=subNr.dtype)
+    # Number of boxes for the bootstrap
+    Nboxes = centers.shape[0]
+
+    Mmax = np.zeros((NMassRank,Nboxes), dtype=mass.dtype)
+    fileNrMax = np.zeros((NMassRank,Nboxes), dtype=fileNr.dtype)
+    subNrMax = np.zeros((NMassRank,Nboxes), dtype=subNr.dtype)
 
     t0 = perf_counter()
     loggerH(f"KDtree: Building KDtree for fast search")
     tree = spatial.KDTree(coords, boxsize=BoxSize, leafsize=leafsize)
     loggerN(f"KDtree: building time {perf_counter()-t0:.1f} s")
 
-    loggerH(f"BLOCK BOOTSTRAP: startig...")
+    loggerH(f"BLOCK BOOTSTRAP: starting...")
     t0 = perf_counter()
 
     dtype=np.min_scalar_type(coords.shape[0])
@@ -187,9 +237,9 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
     for j in range(Nboxes):
         ind = np.array(tree.query_ball_point(centers[j,:], newL, p=np.inf, workers=-1), dtype=dtype)
 
-        if ind.size < nn:
+        if ind.size < NMassRank:
             raise ValueError('Hitting a region with less than '
-                             f"{nn} subhalos, in case you used -M try"
+                             f"{NMassRank} subhalos, in case you used -M try"
                              ' to lower (or omit) the mass cut')
 
         mass_tmp = mass[ind]
@@ -197,7 +247,7 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
         subNr_tmp = subNr[ind]
 
         index = np.argmax(mass_tmp)
-        index = np.argsort(mass_tmp)[-nn:][::-1]
+        index = np.argsort(mass_tmp)[-NMassRank:][::-1]
         Mmax[:,j] = mass_tmp[index]
         fileNrMax[:,j] = fileNr_tmp[index]
         subNrMax[:,j] = subNr_tmp[index]
@@ -209,7 +259,7 @@ def bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords, centers, mass,
 
 
 def hebb(z_target, Nboxes, path_data, *, survey=None, L=None, M=None,
-         leafsize=128, force_light=False, nn = 1):
+         leafsize=128, force_light=False, NMassRank = 1):
     from .uchuu_snaps_z import uchuu_snap_list
 
     if survey is None and L is None:
@@ -286,10 +336,10 @@ def hebb(z_target, Nboxes, path_data, *, survey=None, L=None, M=None,
                                           # centers, mass, fileNr, subNr)
     # Mmax, fileNrMax, subNrMax = bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords,
                                           # centers, mass, fileNr, subNr)
-    Mmax, fileNrMax, subNrMax = bootstrap_kdtree_single(Nboxes, BoxSize, newL, coords,
+    Mmax, fileNrMax, subNrMax = bootstrap_kdtree_single(BoxSize, newL, coords,
                                                         centers, mass, fileNr, subNr,
                                                         leafsize=leafsize,
-                                                        nn=nn)
+                                                        NMassRank=NMassRank)
 
     return Mmax, fileNrMax, subNrMax
 

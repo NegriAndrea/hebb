@@ -78,7 +78,7 @@ def hebb_CLI():
                                      def_path, survey = survey,
                                      L=args.L, M=args.M, leafsize =
                                      args.lf, force_light=args.force_light,
-                                     nn=args.n)
+                                     NMassRank=args.n)
     pretty_print(Mmax)
 
 

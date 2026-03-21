@@ -108,10 +108,12 @@ def save_table(Mmax: np.ndarray,
     t['M200'].unit = u.dex(u.Msun)
     t['MassRank'].description = ('Rank of the halo in mass sorting'
                         f" ([0..{args.n-1}], 0 is the most massive)")
+    t['boxID'].description = ('ID of the box used for bootstrap, '
+                        f" [0..{args.Nboxes}]")
 
     t.meta = {'Description':'Hebb result table','Nboxes':args.Nboxes,
               'z_target':args.z_target, '-n':args.n,
               '--survey':args.survey, '-L':args.L, '-M': args.M}
 
-    t.sort(['MassRank', 'fileNr', 'subNr'])
-    t.write('table_max.txt', format='ascii.ecsv', overwrite=True)
+    t.sort(['MassRank', 'boxID', 'fileNr', 'subNr'])
+    t.write('hebb_halo_samples.txt', format='ascii.ecsv', overwrite=True)
