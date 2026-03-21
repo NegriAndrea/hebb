@@ -224,9 +224,16 @@ def bootstrap_kdtree_single(BoxSize, newL, coords, centers, mass,
     fileNrMax = np.zeros((NMassRank,Nboxes), dtype=fileNr.dtype)
     subNrMax = np.zeros((NMassRank,Nboxes), dtype=subNr.dtype)
 
+    # unfortunately as for scipy 1.17.1, only float64 internal operations are
+    # supported, the documentation says that everything will be copied
+    # internally to float64, even with copy_data=False.
+    # There is a request for a float32 support https://github.com/scipy/scipy/issues/18467
+    # hopefully it will get implemented. This is the only bottleneck in the
+    # code when you have over 100 millions haloes
     t0 = perf_counter()
     loggerH(f"KDtree: Building KDtree for fast search")
-    tree = spatial.KDTree(coords, boxsize=BoxSize, leafsize=leafsize)
+    tree = spatial.KDTree(coords, boxsize=BoxSize, leafsize=leafsize,
+                          copy_data=False)
     loggerN(f"KDtree: building time {perf_counter()-t0:.1f} s")
 
     loggerH(f"BLOCK BOOTSTRAP: starting...")
@@ -310,6 +317,7 @@ def hebb(z_target, Nboxes, path_data, *, survey=None, L=None, M=None,
     coords=coords.astype(np.float32)*bin_size
 
     loggerN(f"CATALOGUE: reading time {perf_counter()-t0:.1f} s")
+    loggerN(f"CATALOGUE: read {mass.size} haloes")
     loggerN(f"CATALOGUE: log(M200/Msun): min={mass[0]:.2f},"
           f" max={mass[-1]:.2f}")
 
