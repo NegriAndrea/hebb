@@ -36,7 +36,7 @@ hebb 100 0. -L 1000 -M 1e14
 ## Quickstart
 To estimate the 5 most massive halo at z=3 (with uncertaintes) for a survey that spans from z=3 to 4, having field-of-view of 100 arcsec², using 5000 block bootstrap iterations: 
 ```
-hebb 5000 3. --survey 3. 4. 100. -M 1e12 -n 5
+hebb 5000 3. --survey 3. 4. 100. -M 1e12 -n 5 --plot
 ```
 where we limited the catalogue galaxies to be larger than $10^{12}~M_\odot$ for a faster database load (see later for usage of `-M`).
 
@@ -50,7 +50,7 @@ The simplest way to use `hebb` is via command line, `hebb -h` returns the user m
 
 
 
-
+## Citations
 @ARTICLE{2021MNRAS.506.4210I,
        author = {{Ishiyama}, Tomoaki and {Prada}, Francisco and {Klypin}, Anatoly A. and {Sinha}, Manodeep and {Metcalf}, R. Benton and {Jullo}, Eric and {Altieri}, Bruno and {Cora}, Sof{\'\i}a A. and {Croton}, Darren and {de la Torre}, Sylvain and {Mill{\'a}n-Calero}, David E. and {Oogi}, Taira and {Ruedas}, Jos{\'e} and {Vega-Mart{\'\i}nez}, Cristian A.},
         title = "{The Uchuu simulations: Data Release 1 and dark matter halo concentrations}",
