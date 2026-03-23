@@ -51,6 +51,7 @@ The simplest way to use `hebb` is via command line, `hebb -h` returns the user m
 
 
 ## Citations
+```
 @ARTICLE{2021MNRAS.506.4210I,
        author = {{Ishiyama}, Tomoaki and {Prada}, Francisco and {Klypin}, Anatoly A. and {Sinha}, Manodeep and {Metcalf}, R. Benton and {Jullo}, Eric and {Altieri}, Bruno and {Cora}, Sof{\'\i}a A. and {Croton}, Darren and {de la Torre}, Sylvain and {Mill{\'a}n-Calero}, David E. and {Oogi}, Taira and {Ruedas}, Jos{\'e} and {Vega-Mart{\'\i}nez}, Cristian A.},
         title = "{The Uchuu simulations: Data Release 1 and dark matter halo concentrations}",
@@ -66,3 +67,4 @@ archivePrefix = {arXiv},
  primaryClass = {astro-ph.CO},
        adsurl = {https://ui.adsabs.harvard.edu/abs/2021MNRAS.506.4210I},
 }
+```
