@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 from .hebb_core import hebb, hebb_estimate
 from .hebb_trace import hebb_trace
-from .utils import pretty_print, save_table
+from .utils import pretty_print, save_table, pretty_plot
+import argparse
 import logging
 
 logging.basicConfig(
@@ -14,25 +15,18 @@ logging.basicConfig(
     ]
 )
 
+def define_args() -> argparse.Namespace:
+    """
+    Define the command line interface and options of `hebb`.
 
-
-def hebb_CLI():
-    import numpy as np
-    import argparse
-    import os
-
-    try:
-        def_path = os.environ['HEBB_DB_PATH']
-    except KeyError:
-        raise ValueError('The environment variable HEBB_DB_PATH must be set.'
-                         ' Check the "Database Setup" section at'
-                         ' https://github.com/NegriAndrea/hebb')
+    """
 
     description = (
             'Compute the N most massive dark matter haloes that you can find in a given '
             'survey with [z_min, z_max] and field-of-view by performing a '
             'non-parametric block bootstrap over the Uchuu (2/h cGpc)^3 run.'
             )
+
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('Nboxes', type=int, help='Number of boxes for bootstrap')
     parser.add_argument('z_target', type=float, help='Redshift of your target')
@@ -65,17 +59,30 @@ def hebb_CLI():
 
     args = parser.parse_args()
 
-    if args.survey is None:
-        survey = None
-    else:
-        survey = {'zmin': args.survey[0], 'zmax': args.survey[1], 'fov':
-                  args.survey[2]}
-
     if args.n < 1:
         raise ValueError('The value in -n needs to be a positive integer')
 
-    Mmax, fileNrMax, subNrMax = hebb(args.z_target, args.Nboxes,
-                                     def_path, survey = survey,
+    return args
+
+
+
+def hebb_CLI():
+    import numpy as np
+    import os
+
+    try:
+        def_path = os.environ['HEBB_DB_PATH']
+    except KeyError:
+        raise ValueError('The environment variable HEBB_DB_PATH must be set.'
+                         ' Check the "Database Setup" section at'
+                         ' https://github.com/NegriAndrea/hebb')
+
+    args = define_args()
+
+
+    Mmax, fileNrMax, subNrMax = hebb(args.z_target, args.Nboxes, def_path,
+                                     survey = (None if args.survey is
+                                               None else tuple(args.survey)),
                                      L=args.L, M=args.M, leafsize =
                                      args.lf, force_light=args.force_light,
                                      NMassRank=args.n)
@@ -87,20 +94,9 @@ def hebb_CLI():
 
 
     if args.plot:
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        Mmaxmin = Mmax.min()
-        Mmaxmax = Mmax.max()
-        for i in range(Mmax.shape[0]):
-            hist, bins = np.histogram(Mmax[i,:], 50, range=[Mmaxmin, Mmaxmax])
-            ax.plot((bins[:-1]+bins[1:])/2, hist, label=f"{i}")
-        ax.set_ylabel('N halos')
-        ax.set_xlabel(r'$\log (M_{200}/M_\odot)$')
-        ax.legend(loc='best')
-        plt.show()
+        pretty_plot(Mmax)
 
 def hebb_trace_CLI():
-    import argparse
 
     description = ("Trace back galaxies found with hebb.")
     parser = argparse.ArgumentParser(description=description)
@@ -126,7 +122,6 @@ def hebb_trace_CLI():
 
 def hebb_estimate_CLI():
     import numpy as np
-    import argparse
     import os
 
     try:

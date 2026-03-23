@@ -9,17 +9,11 @@ u.add_enabled_units(cu)
 import numpy as np
 # from numba import njit
 from scipy import spatial
-import logging
 from time import perf_counter
+import numpy.typing as npt
+from .logger_mine import loggerH, loggerN
 
-logger = logging.getLogger(__name__)
 
-def loggerN(msg):
-    logger.info(msg)
-
-def loggerH(msg):
-    logger.info('')
-    logger.info(msg)
 
 def comov_volume(area, z1, z2):
     """
@@ -162,7 +156,7 @@ def bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords, centers, mass, fileNr
     return Mmax, fileNrMax, subNrMax
 
 def bootstrap_kdtree_single(BoxSize, newL, coords, centers, mass,
-                            fileNr, subNr, leafsize=128, NMassRank=1):
+                            fileNr, subNr, *, leafsize=128, NMassRank=1):
     """
     Do a search using a single KDTree and perform a block bootstrap. Better
     than the double one since the centers are uniformly seeded in the volume,
@@ -181,7 +175,7 @@ def bootstrap_kdtree_single(BoxSize, newL, coords, centers, mass,
     coords: np.ndarray of shape(NSubHaloes, 3)
         Subhalo coordinates from catalogue in cMpc.
 
-    centers: np.ndarray of shape(NBoxes, 3)
+    centers: np.ndarray of shape(Nboxes, 3)
         Center of boxes used for bootstrap.
 
     mass: np.ndarray of shape(NSubHaloes,)
@@ -265,8 +259,75 @@ def bootstrap_kdtree_single(BoxSize, newL, coords, centers, mass,
 
 
 
-def hebb(z_target, Nboxes, path_data, *, survey=None, L=None, M=None,
-         leafsize=128, force_light=False, NMassRank = 1):
+def hebb(z_target: float,
+         Nboxes: int,
+         path_data: PurePath | Path | str,
+         *,
+         NMassRank: int = 1,
+         survey: tuple[float,float,float] | None = None,
+         L: float | None = None,
+         M: float | None = None,
+         leafsize: int = 128,
+         force_light: bool = False) -> tuple[npt.NDArray[np.float32],
+                                             npt.NDArray[np.float32],
+                                             npt.NDArray[np.float32]]:
+    """
+    Compute the N most massive dark matter haloes that you can find in a given
+    survey with [z_min, z_max] and field-of-view, or by directly passing a box
+    size, by performing a non-parametric block bootstrap over the Uchuu (2/h cGpc)^3 run.
+
+    Parameters
+    ----------
+    z_target: float
+        Redshift of the target.
+
+    Nboxes: int
+        Number of boxes (iterations) for the block bootstrap. Needs to be a
+        positive integer.
+
+    path_data: string or pathlib object
+        Path of the Uchuu simulation catalogue.
+
+    NMassRank: int, optional
+        Max rank in mass to search. The bootstrap will track the NMassRank most
+        massive galaxies in each box. Default 1 (only the most massive halo is
+        tracked).
+
+    survey: tuple of floats, (z_min, z_maz, fov), optional
+        Survey min z, max z, FOV in arcmin^2, used to estimate the box size for
+        the block bootstrap. Mutually exclusive with L. Default None.
+
+    L: float, optional
+        Size of the box for block bootstrap in cMpc. Mutually exclusive with
+        `survey`. Default None.
+
+    M: float, optional
+        Database mass cut in Msun, greatly speed up the database loading and search but
+        you can incur into empty selection. Default None (load all the
+        database).
+
+    leafsize: int, optional
+        Size of each leaf for the KDTree, increasing it speeds up the research.
+        Default 128.
+
+    force_light: bool, optional
+        Force the reading of the light catalogue first. Default False.
+
+    Returns
+    -------
+
+    Mmax: np.ndarray of shape(NMassRank, Nboxes)
+        2D array of log10(M200/Msun) masses for all the mass ranks
+
+    fileNrMax: np.ndarray of shape(NMassRank, Nboxes)
+        2D array of merger tree file IDs for each halo for traceback
+
+    subNrMax: np.ndarray of shape(NMassRank, Nboxes)
+        2D array of subhalo IDs in each of the merger tree files for each halo for traceback
+
+    """
+
+
     from .uchuu_snaps_z import uchuu_snap_list
 
     if survey is None and L is None:
@@ -323,9 +384,9 @@ def hebb(z_target, Nboxes, path_data, *, survey=None, L=None, M=None,
 
     # L has a higher priority over survey
     if L is None:
-        # for surveys
-        area = survey['fov']*(u.arcmin**2)
-        newL = comov_volume(area,survey['zmin'], survey['zmax']).value/2 # in cMpc
+        # for surveys, (zmin,zmax,fov)
+        area = survey[2]*(u.arcmin**2)
+        newL = comov_volume(area,survey[0], survey[1]).value/2 # in cMpc
         loggerH(f"BOX: Estimated volume={8*newL**3:.3e} cMpc^3,  Box size "
                 f"L={newL*2:.3f} cMpc")
     else:

@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 import argparse
 import numpy as np
+import numpy.typing as npt
+from .logger_mine import loggerH, loggerN
 
-def pretty_print(Mmax: np.ndarray) -> None:
+def pretty_print(Mmax: npt.NDArray) -> None:
     """
     Pretty print a summary of the bootstrap results and quantile table.
 
@@ -55,9 +57,9 @@ def pretty_print(Mmax: np.ndarray) -> None:
 
 
 
-def save_table(Mmax: np.ndarray,
-               fileNrMax: np.ndarray,
-               subNrMax: np.ndarray,
+def save_table(Mmax: npt.NDArray,
+               fileNrMax: npt.NDArray,
+               subNrMax: npt.NDArray,
                args: argparse.Namespace) -> None:
     """
     Save bootstrap samples in a file.
@@ -117,3 +119,35 @@ def save_table(Mmax: np.ndarray,
 
     t.sort(['MassRank', 'boxID', 'fileNr', 'subNr'])
     t.write('hebb_halo_samples.txt', format='ascii.ecsv', overwrite=True)
+
+    loggerH(f"TABLE: written 'hebb_halo_samples.txt'")
+
+
+
+
+def pretty_plot(Mmax: npt.NDArray) -> None:
+    """
+    Pretty plot the distribution of the bootstrap results.
+
+    Parameters
+    ----------
+    Mmax : np.ndarray of shape (NMassRanks, Nboxes)
+        A 2D array of floats representing the maximum halo masses
+        found in each bootstrap iteration. Units should be log10(M_sun).
+
+    Returns
+    -------
+    None
+
+    """
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    Mmaxmin = Mmax.min()
+    Mmaxmax = Mmax.max()
+    for i in range(Mmax.shape[0]):
+        hist, bins = np.histogram(Mmax[i,:], 50, range=[Mmaxmin, Mmaxmax])
+        ax.plot((bins[:-1]+bins[1:])/2, hist, label=f"{i}")
+    ax.set_ylabel('N halos')
+    ax.set_xlabel(r'$\log (M_{200}/M_\odot)$')
+    ax.legend(loc='best')
+    plt.show()
