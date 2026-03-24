@@ -145,7 +145,7 @@ def pretty_plot(Mmax: npt.NDArray) -> None:
     Mmaxmin = Mmax.min()
     Mmaxmax = Mmax.max()
     for i in range(Mmax.shape[0]):
-        hist, bins = np.histogram(Mmax[i,:], 50, range=[Mmaxmin, Mmaxmax])
+        hist, bins = np.histogram(Mmax[i,:], 50, range=(Mmaxmin, Mmaxmax))
         ax.plot((bins[:-1]+bins[1:])/2, hist, label=f"{i}")
     ax.set_ylabel('N halos')
     ax.set_xlabel(r'$\log (M_{200}/M_\odot)$')

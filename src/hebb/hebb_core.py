@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import numpy as np
+import numpy.typing as npt
 import h5py
 from pathlib import PurePath, Path
 import astropy.units as u
@@ -10,7 +11,6 @@ import numpy as np
 # from numba import njit
 from scipy import spatial
 from time import perf_counter
-import numpy.typing as npt
 from .logger_mine import loggerH, loggerN
 
 
@@ -362,7 +362,8 @@ def hebb(z_target: float,
         else:
             m200_indexes = ff[f'S-{snapNr}/M200_indexes'][()]
             m200_bins_edges = ff[f'S-{snapNr}/M200c_bins_edges'][()]
-            if np.log10(M) < m200_bins_edges[0]:
+            if (np.log10(M) < m200_bins_edges[0] and not
+                np.allclose(np.log10(M) , m200_bins_edges[0], atol=1e-3)):
                 raise ValueError(f"The requested mass {M=:.2e} Msun is too low for "
                                  f"z={z_target}, database min mass at this z "
                                  f"is {10.**float(m200_bins_edges[0]):.2e} Msun")
@@ -384,6 +385,10 @@ def hebb(z_target: float,
 
     # L has a higher priority over survey
     if L is None:
+        # this code is here just for mypy, it's alreay checked at the beginning
+        if survey is None:
+            raise ValueError('L and survey cannot be both None')
+
         # for surveys, (zmin,zmax,fov)
         area = survey[2]*(u.arcmin**2)
         newL = comov_volume(area,survey[0], survey[1]).value/2 # in cMpc
