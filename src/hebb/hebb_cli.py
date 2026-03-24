@@ -86,7 +86,7 @@ def hebb_CLI():
                                      L=args.L, M=args.M, leafsize =
                                      args.lf, force_light=args.force_light,
                                      NMassRank=args.n)
-    pretty_print(Mmax)
+    pretty_print(Mmax, write=args.t)
 
 
     if args.t:

@@ -5,7 +5,7 @@ import numpy as np
 import numpy.typing as npt
 from .logger_mine import loggerH, loggerN
 
-def pretty_print(Mmax: npt.NDArray) -> None:
+def pretty_print(Mmax: npt.NDArray, write: bool = False) -> None:
     """
     Pretty print a summary of the bootstrap results and quantile table.
 
@@ -54,6 +54,10 @@ def pretty_print(Mmax: npt.NDArray) -> None:
     print('')
     print('QUANTILES TABLE')
     print(t2)
+
+    if write:
+        t2.write('hebb_quantiles.txt', format='ascii.ecsv', overwrite=True)
+        loggerH(f"TABLE: written 'hebb_quantiles.txt'")
 
 
 
@@ -120,7 +124,7 @@ def save_table(Mmax: npt.NDArray,
     t.sort(['MassRank', 'boxID', 'fileNr', 'subNr'])
     t.write('hebb_halo_samples.txt', format='ascii.ecsv', overwrite=True)
 
-    loggerH(f"TABLE: written 'hebb_halo_samples.txt'")
+    loggerN(f"TABLE: written 'hebb_halo_samples.txt'")
 
 
 
