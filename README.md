@@ -1,7 +1,7 @@
 # hebb
-Halo Extreme Block Bootstrap package to estimate the distribution of heaviest halo mass you can find in a survery at a given redshift.
+Halo Extreme Block Bootstrap package to estimate the distribution of N heaviest halo mass you can find in a survery at a given redshift.
 
-`hebb` uses as a basedata the Uchuu simulation halo catalogue (https://skiesanduniverses.org/Simulations/Uchuu) to perform a block bootstrap by shooting N boxes of a volume equal of the estimated volume of a survey, and recovering the largest halo formed at a particular z, with an uncertainty estimate. The volume of the survey is computed given the survey's field of view and redshift depth, or manually selected. Optionally, the code can dump the list of halo found in the search, which can be used to perform a trace back in time with the Uchuu merger tree.
+`hebb` uses as a basedata the Uchuu simulation halo catalogue (https://skiesanduniverses.org/Simulations/Uchuu) to perform a block bootstrap by shooting boxes of a volume equal of the estimated volume of a survey, and recovering the N largest halo formed at a particular z, with an uncertainty estimate. The volume of the survey is computed given the survey's field of view and redshift depth, or manually selected. Optionally, the code can dump the list of halo found in the search, which can be used to perform a trace back in time with the Uchuu merger tree.
 
 Please cite the following papers if you use `hebb` in your work: Negri & Belli (2026), [Ishiyama et al. (2021)](https://ui.adsabs.harvard.edu/abs/2021MNRAS.506.4210I) (Uchuu Data Release 1).
 
@@ -42,11 +42,34 @@ where we limited the catalogue galaxies to be larger than $10^{12}~M_\odot$ for 
 
 `hebb` can estimate the first `N` most massive galaxies at a given z
 
-## Usage
+## Full Usage
 The simplest way to use `hebb` is via command line, `hebb -h` returns the user manual:
+```
+usage: hebb [-h] (--survey z_min z_max fov | -L L) [-n N] [-t] [--plot] [-M M] [--lf LF] [--force-light] Nboxes z_target
+
+Compute the N most massive dark matter haloes that you can find in a given survey with [z_min, z_max] and field-of-view by performing a non-parametric block bootstrap over the Uchuu (2/h cGpc)^3 run.
+
+positional arguments:
+  Nboxes                Number of boxes for bootstrap
+  z_target              Redshift of your target
+
+options:
+  -h, --help            show this help message and exit
+  -n N                  Track the N most massive haloes in each box (1 tracks only the most massive) [default: 1]
+  -t                    Create a table with the sampled haloes
+  --plot                Show a plot of the M200 distribution
+  -M M                  OPTIMIZATION: Database mass cut, greatly speed up the database loading and search but you can incur into empty boxes [default: None]
+  --lf LF               OPTIMIZATION: Leafe size for each node of the KDTree [default: 128]
+  --force-light         DEBUG: force the reading of the light catalogue first
+
+Processing mode (required, mutually exclusive):
+  --survey z_min z_max fov
+                        Survey min z, max z, FOV in arcmin^2 (used to compute box volume)
+  -L L                  Size of the box in cMpc, alternative to the boxsize computation from the FOV and z-depth of the survey
+```
 
 ## API
-
+TBD
 
 
 
