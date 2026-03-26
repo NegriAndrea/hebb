@@ -264,7 +264,8 @@ def bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords, centers, mass, fileNr
     return Mmax, fileNrMax, subNrMax
 
 def bootstrap_kdtree_single(BoxSize, newL, coords, centers, mass,
-                            fileNr, subNr, *, leafsize=128, NMassRank=1):
+                            fileNr, subNr, *, NMassRank=1, leafsize=128,
+                            workers = -1):
     """
     Do a search using a single KDTree and perform a block bootstrap. Better
     than the double one since the centers are uniformly seeded in the volume,
@@ -297,12 +298,17 @@ def bootstrap_kdtree_single(BoxSize, newL, coords, centers, mass,
         Subhalo number in a specific merger tree file, it is sampled and given in
         output for tracing a subhalo with the merger tree.
 
-    leafsize: int, optional
-        Size of each leaf for the KDTree, increasing it speeds up the research.
-
     NMassRank: int, optional
         Max rank in mass to search. The bootstrap will track the NMassRank most
-        massive galaxies in each box.
+        massive galaxies in each box. Default 1
+
+    leafsize: int, optional
+        Size of each leaf for the KDTree, increasing it speeds up the research.
+        Default: 128
+
+    workers: int, optional
+        Number of jobs to schedule for parallel processing during the tree
+        queries. If -1 is given all processors are used. Default: -1
 
 
     Returns
@@ -345,7 +351,9 @@ def bootstrap_kdtree_single(BoxSize, newL, coords, centers, mass,
 
     # keeping the loop in pure python is ok, the bottleneck is the query
     for j in range(Nboxes):
-        ind = np.array(tree.query_ball_point(centers[j,:], newL, p=np.inf, workers=-1), dtype=dtype)
+        ind = np.array(tree.query_ball_point(centers[j,:], newL, p=np.inf,
+                                             workers=workers, return_sorted = False),
+                       dtype=dtype)
 
         if ind.size < NMassRank:
             raise ValueError('Hitting a region with less than '
@@ -377,6 +385,7 @@ def hebb(z_target: float,
          L: float | None = None,
          M: float | None = None,
          leafsize: int = 128,
+         kdtreeWorkers: int = -1,
          force_light: bool = False) -> tuple[npt.NDArray[np.float32],
                                              npt.NDArray[np.float32],
                                              npt.NDArray[np.float32]]:
@@ -399,25 +408,29 @@ def hebb(z_target: float,
 
     NMassRank: int, optional
         Max rank in mass to search. The bootstrap will track the NMassRank most
-        massive galaxies in each box. Default 1 (only the most massive halo is
+        massive galaxies in each box. Default: 1 (only the most massive halo is
         tracked).
 
     survey: tuple of floats, (z_min, z_maz, fov), optional
         Survey min z, max z, FOV in arcmin^2, used to estimate the box size for
-        the block bootstrap. Mutually exclusive with L. Default None.
+        the block bootstrap. Mutually exclusive with L. Default: None.
 
     L: float, optional
         Size of the box for block bootstrap in cMpc. Mutually exclusive with
-        `survey`. Default None.
+        `survey`. Default: None.
 
     M: float, optional
         Database mass cut in Msun, greatly speed up the database loading and search but
-        you can incur into empty selection. Default None (load all the
+        you can incur into empty selection. Default: None (load all the
         database).
 
     leafsize: int, optional
         Size of each leaf for the KDTree, increasing it speeds up the research.
-        Default 128.
+        Default: 128.
+
+    kdtreeWorkers: int = -1,
+        Number of jobs to schedule for parallel processing during the tree
+        queries. If -1 is given all processors are used. Default: -1
 
     force_light: bool, optional
         Force the reading of the light catalogue first. Default False.
@@ -476,7 +489,8 @@ def hebb(z_target: float,
     Mmax, fileNrMax, subNrMax = bootstrap_kdtree_single(BoxSize, newL, coords,
                                                         centers, mass, fileNr, subNr,
                                                         leafsize=leafsize,
-                                                        NMassRank=NMassRank)
+                                                        NMassRank=NMassRank,
+                                                        workers=kdtreeWorkers)
 
     return Mmax, fileNrMax, subNrMax
 
