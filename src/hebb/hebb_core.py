@@ -49,7 +49,7 @@ def comovSideLenght(area: Quantity, zmin: float , zmax: float) -> Quantity:
     return newL
 
 
-def loadCatalogue(z_target: int,
+def loadCatalogue(z_target: float,
                   path_data: PurePath | Path | str,
                   *,
                   M: float | None = None,
@@ -392,7 +392,6 @@ def bootstrap_kdtree_single(BoxSize:    float,
         fileNr_tmp = fileNr[ind]
         subNr_tmp = subNr[ind]
 
-        index = np.argmax(mass_tmp)
         index = np.argsort(mass_tmp)[-NMassRank:][::-1]
         Mmax[:,j] = mass_tmp[index]
         fileNrMax[:,j] = fileNr_tmp[index]
