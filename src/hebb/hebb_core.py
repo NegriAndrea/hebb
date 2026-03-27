@@ -7,6 +7,7 @@ from pathlib import PurePath, Path
 import astropy.units as u
 import astropy.cosmology.units as cu
 u.add_enabled_units(cu)
+from astropy.units import Quantity
 import numpy as np
 # from numba import njit
 from scipy import spatial
@@ -15,16 +16,33 @@ from .logger_mine import loggerH, loggerN
 
 
 
-def comov_volume(area, z1, z2):
+def comovSideLenght(area: Quantity, zmin: float , zmax: float) -> Quantity:
     """
-    Area must be with an astropy unit, e.g. 300*(u.arcmin**2)
-    Returns size lenght of a box in cMpc
+    Compute the side lenght of a cube of a volume equal to the estimated volume
+    of a survey.
 
+    Parameters
+    ----------
+    area: astropy.units.Quantity
+        Area of the survey, must be an astropy unit quantity, e.g.
+        300*(u.arcmin**2).
+
+    zmin: float
+        Min redshift of the survey.
+
+    zmax: float
+        Max redshift of the survey.
+
+    Returns
+    -------
+    L: astropy.units.Quantity
+        Side lenght of a box in cMpc.
     """
+
     from astropy.cosmology import Planck15
     Omega     = area.to(u.steradian).value # get rid of unit
-    d2        = Planck15.comoving_distance(z1)
-    d3        = Planck15.comoving_distance(z2)
+    d2        = Planck15.comoving_distance(zmin)
+    d3        = Planck15.comoving_distance(zmax)
     V         = Omega/3 * (d3**3 - d2**3)
     newL      = np.cbrt(V.to(u.Mpc**3))
 
@@ -263,9 +281,19 @@ def bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords, centers, mass, fileNr
 
     return Mmax, fileNrMax, subNrMax
 
-def bootstrap_kdtree_single(BoxSize, newL, coords, centers, mass,
-                            fileNr, subNr, *, NMassRank=1, leafsize=128,
-                            workers = -1):
+def bootstrap_kdtree_single(BoxSize:    float,
+                            newL:       float,
+                            coords:     npt.NDArray[np.float32],
+                            centers:    npt.NDArray[np.float32],
+                            mass:       npt.NDArray[np.float32],
+                            fileNr:     npt.NDArray[np.float32],
+                            subNr:      npt.NDArray[np.float32],
+                            *,
+                            NMassRank: int = 1,
+                            leafsize:  int = 128,
+                            workers:   int = -1) -> tuple[npt.NDArray[np.float32],
+                                                          npt.NDArray[np.float32],
+                                                          npt.NDArray[np.float32]]:
     """
     Do a search using a single KDTree and perform a block bootstrap. Better
     than the double one since the centers are uniformly seeded in the volume,
@@ -467,7 +495,7 @@ def hebb(z_target: float,
 
         # for surveys, (zmin,zmax,fov)
         area = survey[2]*(u.arcmin**2)
-        newL = comov_volume(area,survey[0], survey[1]).value/2 # in cMpc
+        newL = comovSideLenght(area,survey[0], survey[1]).value/2 # in cMpc
         loggerH(f"BOX: Estimated volume={8*newL**3:.3e} cMpc^3,  Box size "
                 f"L={newL*2:.3f} cMpc")
     else:
