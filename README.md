@@ -17,8 +17,8 @@ cd hebb
 python3 -m pip install -e .
 ```
 
-### Database Setup
-In addition to installing the Python package, you must download a reduced version of the Uchuu database. Two versions are available, with a different cut in mass; a light [one](https://uses0-my.sharepoint.com/:u:/g/personal/anegri_us_es/IQCDx5T1XlTnSbM2YmYcFoYMATIk_pI1XKPzp4ycUJ6N12M?e=pDdoDg) (2.3 GB) and a more complete one (~40 GB) from [here](https://uses0-my.sharepoint.com/:u:/g/personal/anegri_us_es/IQBrGP-3e0xHR6pV0YkfCb1hAYS1KLSNnjmDvVb3H6ytsUA?e=fcudjY). To set the database path you can define the following environment variable in your `~/.bash_profile`
+#### Database Setup
+In addition to installing the Python package, you must download a reduced version of the Uchuu database. Two versions are available, with a different cut in mass; a light [one](https://uses0-my.sharepoint.com/:u:/g/personal/anegri_us_es/IQCDx5T1XlTnSbM2YmYcFoYMATIk_pI1XKPzp4ycUJ6N12M?e=pDdoDg) (2.3 GB) and a more complete [one](https://uses0-my.sharepoint.com/:u:/g/personal/anegri_us_es/IQBrGP-3e0xHR6pV0YkfCb1hAYS1KLSNnjmDvVb3H6ytsUA?e=fcudjY) (~40 GB). To set the database path you can define the following environment variable in your `~/.bash_profile`
 ```
 # bash
 export HEBB_DB_PATH=/path/to/database
@@ -27,7 +27,7 @@ where you have to change `/path/to/database` to the path of the downloaded datab
 
 NOTE: In order to keep the file size manageble the database contains only log10(M200), positions and merger tree IDs; the halo positions have been binned on a 40 ckpc gridsize and stored as `uint16` integer, which is precise enough for volumes that are usually way larger than 1 cMpc.
 
-### Test installation
+#### Test installation
 The easiest way to test if everything is correctly installed and set up is to run the command
 ```
 hebb 100 0. -L 1000 -M 1e14
@@ -36,11 +36,9 @@ hebb 100 0. -L 1000 -M 1e14
 ## Quickstart
 To estimate the 5 most massive halo at z=3 (with uncertaintes) for a survey that spans from z=3 to 4, having field-of-view of 100 arcsec², using 5000 block bootstrap iterations: 
 ```
-hebb 5000 3. --survey 3. 4. 100. -M 1e12 -n 5 --plot
+hebb 5000 3. --survey 3. 4. 100. -M 1e12 -n 5 --plot -t
 ```
-where we limited the catalogue galaxies to be larger than $10^{12}~M_\odot$ for a faster database load (see later for usage of `-M`).
-
-`hebb` can estimate the first `N` most massive galaxies at a given z
+where we limited the catalogue galaxies to be larger than $10^{12}~M_\odot$ for a faster database load (see later for usage of `-M`). The option `-t` creates a table with the sampled haloes, their IDs to trace them back and forth in time with the Uchuu merger tree, and a table containing a list of percentiles for every mass rank.
 
 ## Full Usage
 The simplest way to use `hebb` is via command line, `hebb -h` returns the user manual:
