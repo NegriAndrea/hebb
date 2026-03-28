@@ -1,8 +1,6 @@
 [build-system]
 requires = ["setuptools >= 77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
-#[tool.setuptools-git-versioning]
-#enabled = true
 
 [project]
 name = "hebb"
@@ -24,9 +22,8 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "astropy>=7.0",
-    "scipy",
+    "scipy>1.6",
     "h5py>=3.9.0",
-    "scipy",
     "matplotlib",
     "mpi4py",
     ]
