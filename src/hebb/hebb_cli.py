@@ -45,6 +45,10 @@ def define_args() -> argparse.Namespace:
                         ' in each box (1 tracks only the most massive) [default: %(default)d]', default=1)
     parser.add_argument('-t', action='store_true', help='Create a table with'
                         ' the sampled haloes')
+    parser.add_argument('--method', type=str, help='Do a monte carlo'
+                        ' selection with overlapping boxes',
+                        choices = ['montecarlo', 'bootstrap'],
+                        default='bootstrap')
     parser.add_argument('--plot', action='store_true', help='Show a plot of the M200 distribution')
 
     parser.add_argument('-M', type=float, help='OPTIMIZATION: Database mass'
@@ -85,7 +89,7 @@ def hebb_CLI():
                                                None else tuple(args.survey)),
                                      L=args.L, M=args.M, leafsize =
                                      args.lf, force_light=args.force_light,
-                                     NMassRank=args.n)
+                                     NMassRank=args.n, method=args.method)
     pretty_print(Mmax, write=args.t)
 
 

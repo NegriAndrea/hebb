@@ -295,7 +295,7 @@ def bootstrap_kdtree_single(BoxSize:    float,
                                                           npt.NDArray[np.float32],
                                                           npt.NDArray[np.float32]]:
     """
-    Do a search using a single KDTree and perform a block bootstrap. Better
+    Do a search using a single KDTree and perform a halo search within N boxes. Better
     than the double one since the centers are uniformly seeded in the volume,
     and it can be parallelized
 
@@ -306,8 +306,7 @@ def bootstrap_kdtree_single(BoxSize:    float,
 
     newL: float
         Half size of the box to bootstrap in cMpc. This is used as the maximum
-        (Chebyshev) distance to find the subhaloes during a single iteration of
-        the bootstrap
+        (Chebyshev) distance to find the subhaloes during a single search
 
     coords: np.ndarray of shape(NSubHaloes, 3)
         Subhalo coordinates from catalogue in cMpc.
@@ -372,7 +371,7 @@ def bootstrap_kdtree_single(BoxSize:    float,
                           copy_data=False)
     loggerN(f"KDtree: building time {perf_counter()-t0:.1f} s")
 
-    loggerH(f"BLOCK BOOTSTRAP: starting...")
+    loggerH(f"SEARCH: starting {Nboxes} iterations...")
     t0 = perf_counter()
 
     dtype=np.min_scalar_type(coords.shape[0])
@@ -397,7 +396,7 @@ def bootstrap_kdtree_single(BoxSize:    float,
         fileNrMax[:,j] = fileNr_tmp[index]
         subNrMax[:,j] = subNr_tmp[index]
 
-    loggerN(f"BLOCK BOOTSTRAP: done, time {perf_counter()-t0:.1f} s")
+    loggerN(f"SEARCH: done, time {perf_counter()-t0:.1f} s")
 
     return Mmax, fileNrMax, subNrMax
 
@@ -411,6 +410,7 @@ def hebb(z_target: float,
          survey: tuple[float,float,float] | None = None,
          L: float | None = None,
          M: float | None = None,
+         method: str = 'bootstrap',
          leafsize: int = 128,
          kdtreeWorkers: int = -1,
          force_light: bool = False) -> tuple[npt.NDArray[np.float32],
@@ -503,10 +503,29 @@ def hebb(z_target: float,
 
 
 
-    # shoot (Nboxes,3) random numbers between 0 and BoxSize
     rng = np.random.default_rng()
-    centers=rng.random(size=(Nboxes,3), dtype=np.float32)
-    centers*=BoxSize
+    if method == 'montecarlo':
+        # shoot (Nboxes,3) random numbers between 0 and BoxSize
+        centers=rng.random(size=(Nboxes,3), dtype=np.float32)
+        centers*=BoxSize
+    elif method == 'bootstrap':
+        # tiling, no overlapping
+        x = np.arange(0., BoxSize, newL, dtype=np.float32)
+        xc = (x[1:]+x[:-1])/2.
+
+        # move a bit the grid so we randomly get everything
+        off=rng.random(size=(1), dtype=np.float32)
+        off*=BoxSize - x[-1]
+        xc += off
+
+        XC, YC, ZC = np.meshgrid(xc, xc, xc, copy=True, sparse=False)
+        XC.shape = XC.size
+        YC.shape = YC.size
+        ZC.shape = ZC.size
+        centers = np.zeros((XC.size, 3), dtype=XC.dtype)
+        centers[:,0] = XC
+        centers[:,1] = YC
+        centers[:,2] = ZC
 
 
     # Mmax, fileNrMax, subNrMax = bootstrap_brute_force(Nboxes, BoxSize, newL, coords,

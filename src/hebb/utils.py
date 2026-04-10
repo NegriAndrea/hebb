@@ -117,7 +117,7 @@ def save_table(Mmax: npt.NDArray,
     t['boxID'].description = ('ID of the box used for bootstrap, '
                         f" [0..{args.Nboxes}]")
 
-    t.meta = {'Description':'Hebb result table','Nboxes':args.Nboxes,
+    t.meta = {'Description':'Hebb result table','Nboxes':boxID.max(),
               'z_target':args.z_target, '-n':args.n,
               '--survey':args.survey, '-L':args.L, '-M': args.M}
 
