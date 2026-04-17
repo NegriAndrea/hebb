@@ -36,8 +36,9 @@ def pretty_print(Mmax: npt.NDArray, write: bool = False) -> None:
         # print(f"{i} log10(M200) = {np.log10(M50):.2f} _-{(M50-M16)/M50/np.log(10):.2f} ^+{(M86-M50)/M50/np.log(10):.2f}")
 
     # build a quantile table and use astropy Table to do a pretty print
-    quantslog = np.log10(quants[:,[3,4,5,1,6,7,8]])
-    names=[str(q) for q in quantiles[[3,4,5,1,6,7,8]]]
+    ind = [3,4,0,5,1,6,2,7,8]
+    quantslog = np.log10(quants[:,ind])
+    names=[str(int(q)) for q in quantiles[ind]*100]
 
     t2=Table(quantslog, names=names)
 
@@ -53,9 +54,8 @@ def pretty_print(Mmax: npt.NDArray, write: bool = False) -> None:
 
 
 
-    t3 = t2[['MassRank', '0.5']]
-    t3['log10(M200)'] = t3['0.5']
-    del t3['0.5']
+    t3 = t2[['MassRank']]
+    t3['log10(M200)'] = np.log10(quants[:,1])
 
     t3['+'] = (quants[:,1]-quants[:,0])/quants[:,1]/np.log(10)
     t3['-'] = (quants[:,2]-quants[:,1])/quants[:,1]/np.log(10)
@@ -73,12 +73,12 @@ def pretty_print(Mmax: npt.NDArray, write: bool = False) -> None:
     print(t3)
 
     print('')
-    print('QUANTILES TABLE')
+    print('PERCENTILES TABLE')
     print(t2)
 
 
     if write:
-        t2.write('hebb_quantiles.txt', format='ascii.ecsv', overwrite=True)
+        t2.write('hebb_percentiles.txt', format='ascii.ecsv', overwrite=True)
         loggerH(f"TABLE: written 'hebb_quantiles.txt'")
 
 
