@@ -3,12 +3,12 @@
 import numpy as np
 import numpy.typing as npt
 
-def weighted_median(values: npt.NDArray, weights: npt.NDArray): -> npt.NDArray
+def weighted_median(values: npt.NDArray, weights: npt.NDArray) -> npt.NDArray:
     i = np.argsort(values)
     c = np.cumsum(weights[i])
     return values[i[np.searchsorted(c, 0.5 * c[-1])]]
 
-def bootstrap(data: npt.NDArray, niterations: int): -> npt.NDArray
+def bootstrap(data: npt.NDArray, niterations: int) -> npt.NDArray:
     NMassRank = data.shape[0]
     medians = np.zeros((NMassRank, niterations), dtype=data.dtype)
     for j in range(niterations):
@@ -19,7 +19,7 @@ def bootstrap(data: npt.NDArray, niterations: int): -> npt.NDArray
 
     return medians
 
-def bbootstrap(data: npt.NDArray, niterations: int): -> npt.NDArray
+def bbootstrap(data: npt.NDArray, niterations: int) -> npt.NDArray:
     NMassRank = data.shape[0]
     medians = np.zeros((NMassRank, niterations), dtype=data.dtype)
     ones = np.ones(data.shape[1], dtype=np.float32)
