@@ -23,12 +23,11 @@ def define_args() -> argparse.Namespace:
 
     description = (
             'Compute the N most massive dark matter haloes that you can find in a given '
-            'survey with [z_min, z_max] and field-of-view by performing a '
-            'non-parametric block bootstrap over the Uchuu (2/h cGpc)^3 run.'
+            'survey with [z_min, z_max] and field-of-view with '
+            'monte carlo, non-overlapping or non-parametric bayesian bootstrap over the Uchuu (2/h cGpc)^3 run.'
             )
 
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('Nboxes', type=int, help='Number of boxes for bootstrap')
     parser.add_argument('z_target', type=float, help='Redshift of your target')
 
     group = parser.add_argument_group( "Processing mode (required, mutually exclusive)")
@@ -43,20 +42,22 @@ def define_args() -> argparse.Namespace:
 
     parser.add_argument('-n', type=int, help='Track the N most massive haloes'
                         ' in each box (1 tracks only the most massive) [default: %(default)d]', default=1)
+    parser.add_argument('--niter', type=int, help='Do a Monte Carlo selection'
+                        ' with NITER overlapping boxes overlapping search',
+                        default=0)
+    parser.add_argument('--bb', type=int, help='Estimate the variance of the '
+                        ' median with BB iterations bayesian non parametric '
+                        ' bootstrap', default=0)
     parser.add_argument('-t', action='store_true', help='Create a table with'
                         ' the sampled haloes')
-    parser.add_argument('--method', type=str, help='Do a monte carlo'
-                        ' selection with overlapping boxes',
-                        choices = ['montecarlo', 'bootstrap'],
-                        default='bootstrap')
     parser.add_argument('--plot', action='store_true', help='Show a plot of the M200 distribution')
 
     parser.add_argument('-M', type=float, help='OPTIMIZATION: Database mass'
                         ' cut, greatly speed up the database loading and search but you can incur'
                         ' into empty boxes [default: None]')
-    parser.add_argument('--lf', type=int, help='OPTIMIZATION: Leafe size for'
-                        ' each node of the KDTree [default: %(default)d]',
-                        default=128)
+    # parser.add_argument('--lf', type=int, help='OPTIMIZATION: Leafe size for'
+                        # ' each node of the KDTree [default: %(default)d]',
+                        # default=128)
     parser.add_argument('--force-light', action='store_true', help='DEBUG: '
                         'force the reading of the light catalogue first')
 
@@ -64,7 +65,11 @@ def define_args() -> argparse.Namespace:
     args = parser.parse_args()
 
     if args.n < 1:
-        raise ValueError('The value in -n needs to be a positive integer')
+        raise ValueError('The value in -n must be a positive integer')
+
+    if args.niter < 0:
+        raise ValueError('The number of iterations in --niter must be a'
+                         ' positive integer or 0 (for non overlapping search)')
 
     return args
 
@@ -84,12 +89,14 @@ def hebb_CLI():
     args = define_args()
 
 
-    Mmax, fileNrMax, subNrMax = hebb(args.z_target, args.Nboxes, def_path,
+    Mmax, fileNrMax, subNrMax = hebb(args.z_target, def_path,
                                      survey = (None if args.survey is
                                                None else tuple(args.survey)),
-                                     L=args.L, M=args.M, leafsize =
-                                     args.lf, force_light=args.force_light,
-                                     NMassRank=args.n, method=args.method)
+                                     NboxesOS = args.niter,
+                                     bb = args.bb,
+                                     L=args.L, M=args.M,
+                                     force_light=args.force_light,
+                                     NMassRank=args.n)
     pretty_print(Mmax, write=args.t)
 
 

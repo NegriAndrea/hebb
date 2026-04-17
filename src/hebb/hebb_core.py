@@ -13,6 +13,7 @@ import numpy as np
 from scipy import spatial
 from time import perf_counter
 from .logger_mine import loggerH, loggerN
+from .bootstrap import bbootstrap
 
 
 
@@ -156,6 +157,53 @@ def loadCatalogue(z_target: float,
 
     return coords, mass, fileNr, subNr, BoxSize
 
+def nonOverLappingBoxes(BoxSize: float,
+                        L: float,
+                        random: bool = True) -> npt.NDArray[np.float32]:
+    """
+    Compute the centers of sub-boxes of side L that tile the volume defined by
+    BoxSize. The sub-boxes are non-overlapping.
+
+    Parameters
+    ----------
+    BoxSize: float
+        Size of the box of the numerical simulation in cMpc.
+
+    L: float
+        Size of the sub-box cMpc.
+
+    random: bool
+        Ramdomly shift all the boxes in case BoxSize is not a multiple of L.
+
+
+    Returns
+    -------
+    centers: np.ndarray of shape(Ntiles, 3)
+        The centers of the boxes.
+    """
+
+    # tiling, no overlapping
+    x = np.arange(0., BoxSize, L, dtype=np.float32)
+    xc = (x[1:]+x[:-1])/2.
+
+    if random:
+        # move a bit the grid so we randomly get everything
+        rng = np.random.default_rng()
+        off=rng.random(size=(1), dtype=np.float32)
+        off*=BoxSize - x[-1]
+        xc += off
+
+    XC, YC, ZC = np.meshgrid(xc, xc, xc, copy=True, sparse=False)
+    XC.shape = XC.size
+    YC.shape = YC.size
+    ZC.shape = ZC.size
+    centers = np.zeros((XC.size, 3), dtype=XC.dtype)
+    centers[:,0] = XC
+    centers[:,1] = YC
+    centers[:,2] = ZC
+
+    return centers
+
 # @njit
 def dL(coord1, coord2_in, boxsize):
     """
@@ -289,6 +337,7 @@ def bootstrap_kdtree_single(BoxSize:    float,
                             fileNr:     npt.NDArray[np.float32],
                             subNr:      npt.NDArray[np.float32],
                             *,
+                            tree = None,
                             NMassRank: int = 1,
                             leafsize:  int = 128,
                             workers:   int = -1) -> tuple[npt.NDArray[np.float32],
@@ -352,26 +401,28 @@ def bootstrap_kdtree_single(BoxSize:    float,
 
     """
 
-    # Number of boxes for the bootstrap
+    # Number of boxes for the search
     Nboxes = centers.shape[0]
 
     Mmax = np.zeros((NMassRank,Nboxes), dtype=mass.dtype)
     fileNrMax = np.zeros((NMassRank,Nboxes), dtype=fileNr.dtype)
     subNrMax = np.zeros((NMassRank,Nboxes), dtype=subNr.dtype)
 
-    # unfortunately as for scipy 1.17.1, only float64 internal operations are
-    # supported, the documentation says that everything will be copied
-    # internally to float64, even with copy_data=False.
-    # There is a request for a float32 support https://github.com/scipy/scipy/issues/18467
-    # hopefully it will get implemented. This is the only bottleneck in the
-    # code when you have over 100 millions haloes
-    t0 = perf_counter()
-    loggerH(f"KDtree: Building KDtree for fast search")
-    tree = spatial.KDTree(coords, boxsize=BoxSize, leafsize=leafsize,
-                          copy_data=False)
-    loggerN(f"KDtree: building time {perf_counter()-t0:.1f} s")
+    if tree is None:
+        # unfortunately as for scipy 1.17.1, only float64 internal operations are
+        # supported, the documentation says that everything will be copied
+        # internally to float64, even with copy_data=False.
+        # There is a request for a float32 support https://github.com/scipy/scipy/issues/18467
+        # hopefully it will get implemented. This is the only bottleneck in the
+        # code when you have over 100 millions haloes
+        t0 = perf_counter()
+        loggerH(f"KDtree: Building KDtree for fast search")
+        tree = spatial.KDTree(coords, boxsize=BoxSize, leafsize=leafsize,
+                              copy_data=False)
+        loggerN(f"KDtree: building time {perf_counter()-t0:.1f} s")
 
-    loggerH(f"SEARCH: starting {Nboxes} iterations...")
+    loggerH(f"SEARCH: starting search for {NMassRank} most massive halo(s) in"
+            f" {Nboxes} boxes")
     t0 = perf_counter()
 
     dtype=np.min_scalar_type(coords.shape[0])
@@ -396,21 +447,20 @@ def bootstrap_kdtree_single(BoxSize:    float,
         fileNrMax[:,j] = fileNr_tmp[index]
         subNrMax[:,j] = subNr_tmp[index]
 
-    loggerN(f"SEARCH: done, time {perf_counter()-t0:.1f} s")
+    loggerN(f"SEARCH: done, took {perf_counter()-t0:.1f} s")
 
-    return Mmax, fileNrMax, subNrMax
-
+    return Mmax, fileNrMax, subNrMax, tree
 
 
 def hebb(z_target: float,
-         Nboxes: int,
          path_data: PurePath | Path | str,
          *,
          NMassRank: int = 1,
          survey: tuple[float,float,float] | None = None,
          L: float | None = None,
+         NboxesOS: int | None = 0,
          M: float | None = None,
-         method: str = 'bootstrap',
+         bb: int = 0,
          leafsize: int = 128,
          kdtreeWorkers: int = -1,
          force_light: bool = False) -> tuple[npt.NDArray[np.float32],
@@ -425,10 +475,6 @@ def hebb(z_target: float,
     ----------
     z_target: float
         Redshift of the target.
-
-    Nboxes: int
-        Number of boxes (iterations) for the block bootstrap. Needs to be a
-        positive integer.
 
     path_data: string or pathlib object
         Path of the Uchuu simulation catalogue.
@@ -445,6 +491,10 @@ def hebb(z_target: float,
     L: float, optional
         Size of the box for block bootstrap in cMpc. Mutually exclusive with
         `survey`. Default: None.
+
+    NboxesOS: int
+        Number of boxes (iterations) for overlapping search. Needs to be a
+        positive integer. Default: 0 (perform non overlapping search).
 
     M: float, optional
         Database mass cut in Msun, greatly speed up the database loading and search but
@@ -494,49 +544,53 @@ def hebb(z_target: float,
 
         # for surveys, (zmin,zmax,fov)
         area = survey[2]*(u.arcmin**2)
-        newL = comovSideLenght(area,survey[0], survey[1]).value/2 # in cMpc
-        loggerH(f"BOX: Estimated volume={8*newL**3:.3e} cMpc^3,  Box size "
-                f"L={newL*2:.3f} cMpc")
+        newL = comovSideLenght(area,survey[0], survey[1]).value # in cMpc
+        loggerH(f"BOX: Estimated volume={newL**3:.3e} cMpc^3,  Box size "
+                f"L={newL:.3f} cMpc")
     else:
-        newL = L/2.
-        loggerH(f"BOX: Volume={8*newL**3:.3e} cMpc^3,  Box size L={newL*2:.3f} cMpc")
+        newL = L
+        loggerH(f"BOX: Volume={newL**3:.3e} cMpc^3,  Box size L={newL:.3f} cMpc")
 
 
 
-    rng = np.random.default_rng()
-    if method == 'montecarlo':
-        # shoot (Nboxes,3) random numbers between 0 and BoxSize
-        centers=rng.random(size=(Nboxes,3), dtype=np.float32)
+    centers_non_overlapping = nonOverLappingBoxes(BoxSize, newL)
+    if NboxesOS > 0:
+        # shoot (NboxesOS,3) random numbers between 0 and BoxSize
+        rng = np.random.default_rng()
+        centers=rng.random(size=(NboxesOS,3), dtype=np.float32)
         centers*=BoxSize
-    elif method == 'bootstrap':
-        # tiling, no overlapping
-        x = np.arange(0., BoxSize, newL, dtype=np.float32)
-        xc = (x[1:]+x[:-1])/2.
-
-        # move a bit the grid so we randomly get everything
-        off=rng.random(size=(1), dtype=np.float32)
-        off*=BoxSize - x[-1]
-        xc += off
-
-        XC, YC, ZC = np.meshgrid(xc, xc, xc, copy=True, sparse=False)
-        XC.shape = XC.size
-        YC.shape = YC.size
-        ZC.shape = ZC.size
-        centers = np.zeros((XC.size, 3), dtype=XC.dtype)
-        centers[:,0] = XC
-        centers[:,1] = YC
-        centers[:,2] = ZC
+    else:
+        centers = np.copy(centers_non_overlapping)
 
 
-    # Mmax, fileNrMax, subNrMax = bootstrap_brute_force(Nboxes, BoxSize, newL, coords,
-                                          # centers, mass, fileNr, subNr)
-    # Mmax, fileNrMax, subNrMax = bootstrap_kdtree_double(Nboxes, BoxSize, newL, coords,
-                                          # centers, mass, fileNr, subNr)
-    Mmax, fileNrMax, subNrMax = bootstrap_kdtree_single(BoxSize, newL, coords,
+    Mmax, fileNrMax, subNrMax, tree = bootstrap_kdtree_single(BoxSize, newL/2, coords,
                                                         centers, mass, fileNr, subNr,
                                                         leafsize=leafsize,
                                                         NMassRank=NMassRank,
                                                         workers=kdtreeWorkers)
+
+    if bb >0:
+        loggerH(f"BAYESIAN BOOTSTRAP: beginning ")
+        if NboxesOS > 0:
+            # do a first pass to get the mass ranks from all the tiles
+            Mmax2, fileNrMax2, subNrMax2, tree = bootstrap_kdtree_single(BoxSize,
+                                                                      newL/2, coords,
+                                                                      centers_non_overlapping,
+                                                                      mass, fileNr, subNr,
+                                                                      leafsize=leafsize,
+                                                                      tree = tree,
+                                                                      NMassRank=NMassRank,
+                                                                      workers=kdtreeWorkers)
+        else:
+            # we already did it above
+            Mmax2 = Mmax
+
+        t0 = perf_counter()
+        Mmax_float32 = (10.**Mmax2.astype(np.float64)).astype(np.float32)
+        medians = bbootstrap(Mmax_float32, bb)
+
+        loggerN(f"BAYESIAN BOOTSTRAP: took {perf_counter()-t0:.1f} s")
+        print(f"Median variance: {np.var(np.log10(medians), axis=1)}")
 
     return Mmax, fileNrMax, subNrMax
 

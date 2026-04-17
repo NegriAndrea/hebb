@@ -24,26 +24,25 @@ def pretty_print(Mmax: npt.NDArray, write: bool = False) -> None:
 
     """
     from astropy.table import Table
+    import astropy.units as u
     quantiles = np.array([0.16, 0.5, 0.86,
                           0.05, 0.1, 0.25, .75, 0.9, 0.95])
     quants = np.zeros((Mmax.shape[0], quantiles.size))
 
-    print('')
-    print('RESULTS')
     for i in range(Mmax.shape[0]):
         quants[i,:] = np.quantile(10.**Mmax[i,:].astype(np.float64),
                                             quantiles)
         M16, M50, M86 = quants[i,:3]
-        print(f"{i} log10(M200) = {np.log10(M50):.2f} _-{(M50-M16)/M50/np.log(10):.2f} ^+{(M86-M50)/M50/np.log(10):.2f}")
+        # print(f"{i} log10(M200) = {np.log10(M50):.2f} _-{(M50-M16)/M50/np.log(10):.2f} ^+{(M86-M50)/M50/np.log(10):.2f}")
 
     # build a quantile table and use astropy Table to do a pretty print
-    quants = np.log10(quants[:,[3,4,5,1,6,7,8]])
+    quantslog = np.log10(quants[:,[3,4,5,1,6,7,8]])
     names=[str(q) for q in quantiles[[3,4,5,1,6,7,8]]]
 
-    t2=Table(quants, names=names)
+    t2=Table(quantslog, names=names)
 
     # add MassRank column
-    t2.add_column(np.arange(quants.shape[0], dtype=np.uint8), name='MassRank',
+    t2.add_column(np.arange(quantslog.shape[0], dtype=np.uint8), name='MassRank',
                   index=0)
 
     # print only 2 decimals for floating point numbers
@@ -51,9 +50,32 @@ def pretty_print(Mmax: npt.NDArray, write: bool = False) -> None:
         if t2[cname].info.dtype in ['<f4', '<f8']:
             t2[cname].info.format = '6.2f'
 
+
+
+
+    t3 = t2[['MassRank', '0.5']]
+    t3['log10(M200)'] = t3['0.5']
+    del t3['0.5']
+
+    t3['+'] = (quants[:,1]-quants[:,0])/quants[:,1]/np.log(10)
+    t3['-'] = (quants[:,2]-quants[:,1])/quants[:,1]/np.log(10)
+
+    # print only 2 decimals for floating point numbers
+    for cname in t3.colnames:
+        if t3[cname].info.dtype in ['<f4', '<f8']:
+            t3[cname].info.format = '6.2f'
+    t3['log10(M200)'].units = u.dex('Msun')
+
+    print('')
+    print('')
+    print('RESULTS: log median for every mass rank with ± 16th and 68th percentiles')
+    print('         in latex is $log(M200)^{+}_{-}$')
+    print(t3)
+
     print('')
     print('QUANTILES TABLE')
     print(t2)
+
 
     if write:
         t2.write('hebb_quantiles.txt', format='ascii.ecsv', overwrite=True)
@@ -115,7 +137,7 @@ def save_table(Mmax: npt.NDArray,
     t['MassRank'].description = ('Rank of the halo in mass sorting'
                         f" ([0..{args.n-1}], 0 is the most massive)")
     t['boxID'].description = ('ID of the box used for bootstrap, '
-                        f" [0..{args.Nboxes}]")
+                        f" [0..{Mmax.shape[1]}]")
 
     t.meta = {'Description':'Hebb result table','Nboxes':boxID.max(),
               'z_target':args.z_target, '-n':args.n,
