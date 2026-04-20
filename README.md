@@ -1,7 +1,9 @@
 # hebb
-Halo Extreme Block Bootstrap package to estimate the distribution of N heaviest halo mass you can find in a survery at a given redshift.
+Halo Extreme Bayesian Bootstrap package to estimate the distribution of N heaviest halos masses you can find in a survery at a given redshift.
 
-`hebb` uses as a basedata the Uchuu simulation halo catalogue (https://skiesanduniverses.org/Simulations/Uchuu) to perform a block bootstrap by shooting boxes of a volume equal of the estimated volume of a survey, and recovering the N largest halo formed at a particular z, with an uncertainty estimate. The volume of the survey is computed given the survey's field of view and redshift depth, or manually selected. Optionally, the code can dump the list of halo found in the search, which can be used to perform a trace back in time with the Uchuu merger tree.
+`hebb` uses the Uchuu simulation halo catalogue (https://skiesanduniverses.org/Simulations/Uchuu) by sampling sub-volumes that match the survey’s effective volume, and recovering the mass distribution of the N largest halos formed at a particular $z$, with an uncertainty estimate. The volume of the survey is computed given the survey's field of view and redshift depth, or manually selected. To validate the output, the code uses a bayesian bootstrap to compute the variance of the inferred parameters.
+
+Optionally, the package can export the list of halos identified in each realization for follow-up analyses, such as tracing halo evolution over time using the Uchuu merger tree.
 
 Please cite the following papers if you use `hebb` in your work: Negri & Belli (2026), [Ishiyama et al. (2021)](https://ui.adsabs.harvard.edu/abs/2021MNRAS.506.4210I) (Uchuu Data Release 1).
 
@@ -30,34 +32,34 @@ NOTE: In order to keep the file size manageble the database contains only log10(
 #### Test installation
 The easiest way to test if everything is correctly installed and set up is to run the command
 ```
-hebb 100 0. -L 1000 -M 1e14
+hebb 0. -L 1000 -M 1e14
 ```
 
 ## Quickstart
-To estimate the 5 most massive halo at z=3 (with uncertaintes) for a survey that spans from z=3 to 4, having field-of-view of 100 arcsec², using 5000 block bootstrap iterations: 
+To estimate the mass distribution of the 5 most massive halo at z=3 (with uncertaintes) for a survey that spans from $z=3$ to $4$, having field-of-view of 100 arcsec²: 
 ```
-hebb 5000 3. --survey 3. 4. 100. -M 1e12 -n 5 --plot -t
+hebb 3. --survey 3. 4. 100.  -n 5 -M 1e12 --plot -t
 ```
-where we limited the catalogue galaxies to be larger than $10^{12}~M_\odot$ for a faster database load (see later for usage of `-M`). The option `-t` creates a table with the sampled haloes, their IDs to trace them back and forth in time with the Uchuu merger tree, and a table containing a list of percentiles for every mass rank.
+where we limited the catalogue galaxies to be larger than $10^{12}~M_\odot$ for a faster database load (see later for usage of `-M`). The option `-t` creates a table with the sampled haloes, their IDs to trace them back and forth in time with the Uchuu merger tree, and a table containing a list of percentiles of the mass distributio for every mass rank. The `--plot` option draws the mass probability distributions.
 
 ## Full Usage
 The simplest way to use `hebb` is via command line, `hebb -h` returns the user manual:
 ```
-usage: hebb [-h] (--survey z_min z_max fov | -L L) [-n N] [-t] [--plot] [-M M] [--lf LF] [--force-light] Nboxes z_target
+usage: hebb [-h] (--survey z_min z_max fov | -L L) [-n N] [--niter NITER] [--bb BB] [-t] [--plot] [-M M] [--force-light] z_target
 
-Compute the N most massive dark matter haloes that you can find in a given survey with [z_min, z_max] and field-of-view by performing a non-parametric block bootstrap over the Uchuu (2/h cGpc)^3 run.
+Compute the N most massive dark matter haloes that you can find in a given survey with [z_min, z_max] and field-of-view, and their mass distribution, with a non-overlapping or Monte Carlo (overlapping) sub-boxes sampling of the the Uchuu (2/h cGpc)^3 run. Optionally perform a non-parametric bayesian bootstrap to validate the result.
 
 positional arguments:
-  Nboxes                Number of boxes for bootstrap
   z_target              Redshift of your target
 
 options:
   -h, --help            show this help message and exit
   -n N                  Track the N most massive haloes in each box (1 tracks only the most massive) [default: 1]
+  --niter NITER         Do a Monte Carlo selection with NITER overlapping boxes instead of the default non overlapping box search [default not active]
+  --bb BB               Number of iterations of bayesian bootstrap to estimate the variance of the results [default: 0]
   -t                    Create a table with the sampled haloes
   --plot                Show a plot of the M200 distribution
-  -M M                  OPTIMIZATION: Database mass cut, greatly speed up the database loading and search but you can incur into empty boxes [default: None]
-  --lf LF               OPTIMIZATION: Leafe size for each node of the KDTree [default: 128]
+  -M M                  OPTIMIZATION: Database mass cut, greatly speed up the database loading and tree building but you can incur into empty boxes [default: None]
   --force-light         DEBUG: force the reading of the light catalogue first
 
 Processing mode (required, mutually exclusive):
