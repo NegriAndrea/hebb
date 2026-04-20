@@ -4,10 +4,14 @@ import argparse
 import numpy as np
 import numpy.typing as npt
 from .logger_mine import loggerH, loggerN
+from astropy.table import Table
 
-def pretty_print(Mmax: npt.NDArray, write: bool = False) -> None:
+def pretty_print(Mmax: npt.NDArray,
+                 *,
+                 write: bool = False,
+                 tvar: npt.NDArray | None = None) -> None:
     """
-    Pretty print a summary of the bootstrap results and quantile table.
+    Pretty print a summary of the results and quantile table.
 
     This function takes the extremal mass distribution and computes standard
     quantiles to provide a human-readable summary of the hebb analysis.
@@ -23,7 +27,7 @@ def pretty_print(Mmax: npt.NDArray, write: bool = False) -> None:
     None
 
     """
-    from astropy.table import Table
+    NMassRanks = Mmax.shape[0]
     import astropy.units as u
     quantiles = np.array([0.16, 0.5, 0.86,
                           0.05, 0.1, 0.25, .75, 0.9, 0.95])
@@ -75,6 +79,21 @@ def pretty_print(Mmax: npt.NDArray, write: bool = False) -> None:
     print('')
     print('PERCENTILES TABLE')
     print(t2)
+
+    if tvar is not None:
+        if NMassRanks != tvar.shape[0]:
+            raise ValueError('tvar does not contain the same number of mass'
+                             ' ranks as the mass array')
+        print('')
+        print('PERCENTILES VARIANCE')
+        print('i.e. how much we trust the values of the percentiles table')
+        tvar = Table(tvar, copy=False, names = ('16', '50', '86'))
+        tvar.add_column(np.arange(NMassRanks, dtype=np.uint8), name='MassRank',
+                     index=0)
+        for cname in tvar.colnames:
+            if tvar[cname].info.dtype in ['<f4', '<f8']:
+                tvar[cname].info.format = '6.1e'
+        print(tvar)
 
 
     if write:

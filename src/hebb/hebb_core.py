@@ -13,7 +13,7 @@ import numpy as np
 from scipy import spatial
 from time import perf_counter
 from .logger_mine import loggerH, loggerN
-from .bootstrap import bbootstrap
+from astropy.table import Table
 
 
 
@@ -460,7 +460,6 @@ def hebb(z_target: float,
          L: float | None = None,
          NboxesOS: int | None = 0,
          M: float | None = None,
-         bb: int = 0,
          leafsize: int = 128,
          kdtreeWorkers: int = -1,
          force_light: bool = False) -> tuple[npt.NDArray[np.float32],
@@ -553,14 +552,13 @@ def hebb(z_target: float,
 
 
 
-    centers_non_overlapping = nonOverLappingBoxes(BoxSize, newL)
     if NboxesOS > 0:
         # shoot (NboxesOS,3) random numbers between 0 and BoxSize
         rng = np.random.default_rng()
         centers=rng.random(size=(NboxesOS,3), dtype=np.float32)
         centers*=BoxSize
     else:
-        centers = np.copy(centers_non_overlapping)
+        centers = nonOverLappingBoxes(BoxSize, newL)
 
 
     Mmax, fileNrMax, subNrMax, tree = bootstrap_kdtree_single(BoxSize, newL/2, coords,
@@ -568,29 +566,6 @@ def hebb(z_target: float,
                                                         leafsize=leafsize,
                                                         NMassRank=NMassRank,
                                                         workers=kdtreeWorkers)
-
-    if bb >0:
-        loggerH(f"BAYESIAN BOOTSTRAP: beginning ")
-        if NboxesOS > 0:
-            # do a first pass to get the mass ranks from all the tiles
-            Mmax2, fileNrMax2, subNrMax2, tree = bootstrap_kdtree_single(BoxSize,
-                                                                      newL/2, coords,
-                                                                      centers_non_overlapping,
-                                                                      mass, fileNr, subNr,
-                                                                      leafsize=leafsize,
-                                                                      tree = tree,
-                                                                      NMassRank=NMassRank,
-                                                                      workers=kdtreeWorkers)
-        else:
-            # we already did it above
-            Mmax2 = Mmax
-
-        t0 = perf_counter()
-        Mmax_float32 = (10.**Mmax2.astype(np.float64)).astype(np.float32)
-        medians = bbootstrap(Mmax_float32, bb)
-
-        loggerN(f"BAYESIAN BOOTSTRAP: took {perf_counter()-t0:.1f} s")
-        print(f"Median variance: {np.var(np.log10(medians), axis=1)}")
 
     return Mmax, fileNrMax, subNrMax
 

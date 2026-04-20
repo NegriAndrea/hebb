@@ -5,6 +5,7 @@ from .hebb_trace import hebb_trace
 from .utils import pretty_print, save_table, pretty_plot
 import argparse
 import logging
+from .bootstrap import bootstrap_driver
 
 logging.basicConfig(
     level=logging.INFO,
@@ -93,11 +94,15 @@ def hebb_CLI():
                                      survey = (None if args.survey is
                                                None else tuple(args.survey)),
                                      NboxesOS = args.niter,
-                                     bb = args.bb,
                                      L=args.L, M=args.M,
                                      force_light=args.force_light,
                                      NMassRank=args.n)
-    pretty_print(Mmax, write=args.t)
+    if args.bb > 0:
+        tvar = bootstrap_driver(Mmax, args.bb)
+    else:
+        tvar = None
+
+    pretty_print(Mmax, write=args.t, tvar = tvar)
 
 
     if args.t:

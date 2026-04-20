@@ -18,7 +18,7 @@ license-files = ["LICEN[CS]E*"]
 version = "0.8.2"
 
 
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.0",
     "astropy>=7.0",
