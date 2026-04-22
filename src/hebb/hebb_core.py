@@ -106,7 +106,8 @@ def loadCatalogue(z_target: float,
 
     from .uchuu_snaps_z import uchuu_snap_list
     snapNr_list, z = uchuu_snap_list()
-    snapNr = snapNr_list[np.abs(z - z_target).argmin()]
+    indMin = np.abs(z - z_target).argmin()
+    snapNr = snapNr_list[indMin]
 
     # Boxsize in cMpc
     BoxSize = 2000/0.6774
@@ -122,6 +123,8 @@ def loadCatalogue(z_target: float,
                       f" visit https://github.com/NegriAndrea/hebb")
 
     loggerH(f"CATALOGUE: Reading {catFileName}")
+    loggerN(f"CATALOGUE: Snapshot {snapNr}"
+            f" at to z={z[indMin]:.3f} is the closest to z={z_target}")
     t0 = perf_counter()
 
     with h5py.File(catFileName, 'r') as ff:
@@ -150,10 +153,10 @@ def loadCatalogue(z_target: float,
 
     coords=coords.astype(np.float32)*bin_size
 
-    loggerN(f"CATALOGUE: reading time {perf_counter()-t0:.1f} s")
     loggerN(f"CATALOGUE: read {mass.size} haloes")
     loggerN(f"CATALOGUE: log(M200/Msun): min={mass[0]:.2f},"
           f" max={mass[-1]:.2f}")
+    loggerN(f"CATALOGUE: reading time {perf_counter()-t0:.1f} s")
 
     return coords, mass, fileNr, subNr, BoxSize
 

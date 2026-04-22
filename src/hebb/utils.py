@@ -61,8 +61,8 @@ def pretty_print(Mmax: npt.NDArray,
     t3 = t2[['MassRank']]
     t3['log10(M200)'] = np.log10(quants[:,1])
 
-    t3['+'] = (quants[:,1]-quants[:,0])/quants[:,1]/np.log(10)
-    t3['-'] = (quants[:,2]-quants[:,1])/quants[:,1]/np.log(10)
+    t3['-'] = (quants[:,1]-quants[:,0])/quants[:,1]/np.log(10)
+    t3['+'] = (quants[:,2]-quants[:,1])/quants[:,1]/np.log(10)
 
     # print only 2 decimals for floating point numbers
     for cname in t3.colnames:
