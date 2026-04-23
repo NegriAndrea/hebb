@@ -27,6 +27,43 @@ def unique_ordered(x):
 
     return unique, off, dim
 
+def chopArray(arraySize, Nchunks):
+    """
+    Code taken from array_split, except that it takes the size of an array, and
+    returns the offsets and dimensions of the subarrays, divided in Nchunks of
+    approximately equal size.
+
+    arraySize: size of the array to chop
+    Nchunks : number of chunks to dive the array in
+
+    Works on 1D array only.
+
+    Returns:
+
+    offsets : (Nchunks,) integer array
+    sizes   : (Nchunks,) integer array
+
+    """
+    import numpy as np
+
+    # N is a scalar
+    Nsections = int(Nchunks)
+
+    if Nsections <= 0:
+        raise ValueError('N must be larger than 0.')
+    Neach_section, extras = divmod(arraySize, Nsections)
+    sizes = (extras * [Neach_section+1] +
+                     (Nsections-extras) * [Neach_section])
+
+    offsets = np.array([0]+sizes[:-1], dtype=np.intp).cumsum()
+    sizes = np.asarray(sizes, dtype=np.intp)
+
+    assert offsets.shape == (Nchunks,)
+    assert sizes.shape == (Nchunks,)
+    assert offsets[-1]+sizes[-1] == arraySize
+
+    return offsets, sizes
+
 def hebb_trace(tableName, mergerTreePath, targetZ, v, serial):
 
     if serial:
@@ -35,7 +72,6 @@ def hebb_trace(tableName, mergerTreePath, targetZ, v, serial):
         return (hebb_trace_single(tableName, mergerTreePath, targetZ, v, 0,
                 len(t)),0)
     else:
-        import helperspy as hpy
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -44,7 +80,7 @@ def hebb_trace(tableName, mergerTreePath, targetZ, v, serial):
         t = Table.read(tableName, format='ascii.ecsv')
         t.sort(['fileNr'])
 
-        offset, sizes = hpy.chopArray(len(t), size)
+        offset, sizes = chopArray(len(t), size)
 
         i_begin = offset[rank]
         i_end = sizes[rank]+i_begin
@@ -73,7 +109,7 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end):
     import astropy.units as u
     import astropy.cosmology.units as cu
     u.add_enabled_units(cu)
-    import helperspy as hpy
+    import chydrotree
 
     from .uchuu_snaps_z import uchuu_snap_list
 
@@ -107,7 +143,7 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end):
         if v>0:
             print(f'Read {fileMT}')
         # in case I want the position, use newFields=['Pos']
-        tree = hpy.forestCT(fileMT, newFields=[])
+        tree = chydrotree.forestCT(fileMT, newFields=[])
 
         for sNr in subt['subNr']:
             if v>0:
@@ -123,7 +159,7 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end):
                 fullT.append(tHist[tHist['SnapNr'] == targetSnapNr])
                 fileNr_original.append(jMT)
                 subNr_original.append(sNr)
-            except hpy.CTNoProgenitorError:
+            except chydrotree.CTNoProgenitorError:
                 if v>1:
                     print('NoProgenitor')
 
