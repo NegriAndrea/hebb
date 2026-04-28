@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from astropy.table import Table, vstack
+from .logger_mine import loggerH, loggerN
 
 def unique_ordered(x):
     """
@@ -99,7 +100,8 @@ def hebb_trace(tableName, mergerTreePath, targetZ, v, serial):
 
 
 
-def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end):
+def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end,
+                      Ntrack = 10):
     """
     Trace back galaxies found with hebb.
 
@@ -131,6 +133,11 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end):
     fullT = []
     fileNr_original = []
     subNr_original = []
+    massMinorMerger = []
+    massSingleProgs = []
+    NMinorProgs = []
+
+    tmp = np.full(Ntrack, -np.inf, dtype=np.float32)
 
     # I loop over the merger tree files (MT)
     for jMT, o, s in zip(UfileNr, off, size):
@@ -140,14 +147,12 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end):
 
         fileMT = PurePath(mergerTreePath) / f'mergertree_{jMT}.h5'
 
-        if v>0:
-            print(f'Read {fileMT}')
+        loggerN(f'Read {fileMT}')
         # in case I want the position, use newFields=['Pos']
         tree = chydrotree.forestCT(fileMT, newFields=[])
 
         for sNr in subt['subNr']:
-            if v>0:
-                print(f'Doing {sNr}')
+            loggerN(f"Doing {sNr}")
 
             try:
                 # depends what I want to find, in this case the progenitor
@@ -156,14 +161,44 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end):
                                         t=True, raiseError=True)
 
                 # filter to get the target I want
-                fullT.append(tHist[tHist['SnapNr'] == targetSnapNr])
+                tHist = tHist[tHist['SnapNr'] == targetSnapNr]
+                fullT.append(tHist)
                 fileNr_original.append(jMT)
                 subNr_original.append(sNr)
+
+                tall = tree.subAllProgs(sNr, t=True)
+                tall = tall[tall['SnapNr'] == targetSnapNr]
+
+                # filter out the main progenitor
+                tall = tall[tall['SubhaloNr'] != tHist['SubhaloNr']]
+                tall.sort('Mass')
+                tall = tall[::-1]
+
+                massMinorMerger.append(np.sum(tall['Mass'].to('Msun')).value)
+                NMinorProgs.append(len(tall))
+
+                # track the first Ntrack haloes
+                tmp[:] = -np.inf
+                tmp[:min(len(tall), tmp.size)] = (
+                        tall['Mass'][:min(len(tall), tmp.size)])
+                massSingleProgs.append(tmp)
             except chydrotree.CTNoProgenitorError:
                 if v>1:
                     print('NoProgenitor')
 
     fullT = vstack(fullT)
+    tmp = np.vstack(massSingleProgs)
+    assert tmp.shape[1] == Ntrack
+
+    fullT['massMinorProgs'] = np.log10(np.array(massMinorMerger))
+    fullT['massMinorProgs'].unit = u.dex('Msun')
+    fullT['NMinorProgs'] = np.array(NMinorProgs)
+
+    for i in range(Ntrack):
+        name = str(i+1)+'prog'
+        fullT[name] = tmp[:,i]
+        fullT[name].unit = u.dex('Msun')
+
     fullT['fileNr_original'] = np.array(fileNr_original,
             dtype=t['fileNr'].dtype)
     fullT['subNr_original'] = np.array(subNr_original,
