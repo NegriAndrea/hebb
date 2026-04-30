@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from .hebb_core import hebb, hebb_estimate
 from .hebb_trace import hebb_trace
-from .utils import pretty_print, save_table, pretty_plot
+from .utils import save_table, pretty_plot, buildPercentileTable, listSnapshotTimes
 import argparse
 import logging
 from .bootstrap import bootstrap_driver
@@ -52,6 +52,8 @@ def define_args() -> argparse.Namespace:
     parser.add_argument('-t', action='store_true', help='Create a table with'
                         ' the sampled haloes')
     parser.add_argument('--plot', action='store_true', help='Show a plot of the M200 distribution')
+    parser.add_argument('-l', action='store_true', help='Show the list of '
+                        ' snapshots redshifts and exit')
 
     parser.add_argument('-M', type=float, help='OPTIMIZATION: Database mass'
                         ' cut, greatly speed up the database loading and search but you can incur'
@@ -89,6 +91,10 @@ def hebb_CLI():
 
     args = define_args()
 
+    if args.l:
+        print(listSnapshotTimes())
+        return
+
 
     Mmax, fileNrMax, subNrMax = hebb(args.z_target, def_path,
                                      survey = (None if args.survey is
@@ -102,7 +108,7 @@ def hebb_CLI():
     else:
         tvar = None
 
-    pretty_print(Mmax, write=args.t, tvar = tvar)
+    buildPercentileTable(Mmax, write=args.t, tvar = tvar)
 
 
     if args.t:

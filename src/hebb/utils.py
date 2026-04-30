@@ -5,13 +5,24 @@ import numpy as np
 import numpy.typing as npt
 from .logger_mine import loggerH, loggerN
 from astropy.table import Table
+import astropy.units as u
+import scipy.special
 
-def pretty_print(Mmax: npt.NDArray,
-                 *,
-                 write: bool = False,
-                 tvar: npt.NDArray | None = None) -> None:
+def listSnapshotTimes() -> Table:
+    from .uchuu_snaps_z import uchuu_snap_list
+    snapNr_list, z = uchuu_snap_list()
+
+    t = Table([snapNr_list, z], names=['SnapNr', 'z'])
+    return t
+
+
+def buildPercentileTable(Mmax: npt.NDArray,
+                         *,
+                         units: bool = False,
+                         write: bool = False,
+                         tvar: npt.NDArray | None = None) -> None:
     """
-    Pretty print a summary of the results and quantile table.
+    Build a summary of the results as a quantile table.
 
     This function takes the extremal mass distribution and computes standard
     quantiles to provide a human-readable summary of the hebb analysis.
@@ -22,63 +33,93 @@ def pretty_print(Mmax: npt.NDArray,
         A 2D array of floats representing the maximum halo masses
         found in each bootstrap iteration. Units should be log10(M_sun).
 
+    units : bool, optional
+        Add units to the astropy table. Default False
+
+    write: bool, optional
+        Write the percentile table. Default False
+
+    tvar: np.ndarray, optional
+        Variance of the parameters estimated by the bayesian bootstrap. Default
+        None
+
     Returns
     -------
     None
 
     """
     NMassRanks = Mmax.shape[0]
-    import astropy.units as u
-    quantiles = np.array([0.16, 0.5, 0.86,
-                          0.05, 0.1, 0.25, .75, 0.9, 0.95])
-    quants = np.zeros((Mmax.shape[0], quantiles.size))
+
+    sigmaQuantiles = np.array([1,2,3,4,5])
+    highSigmaQuant  = (0.5*(1+scipy.special.erf(sigmaQuantiles/np.sqrt(2))))
+    lowSigmaQuant = (0.5*(1-scipy.special.erf(sigmaQuantiles/np.sqrt(2))))
+
+    quantiles = np.array([0.05, 0.1, 0.25, 0.5, .75, 0.9, 0.95])
+
+    full_quantiles = np.concatenate([quantiles, lowSigmaQuant, highSigmaQuant])
+    quants = np.zeros((NMassRanks, full_quantiles.size))
+
+    names=[str(int(q)) for q in quantiles*100]
+    names_round = names.copy()
+    names.extend([str(q)+'σ' for q in np.concatenate([-sigmaQuantiles,
+                                                       sigmaQuantiles])])
+    names = np.array(names)
 
     for i in range(Mmax.shape[0]):
         quants[i,:] = np.quantile(10.**Mmax[i,:].astype(np.float64),
-                                            quantiles)
-        M16, M50, M86 = quants[i,:3]
-        # print(f"{i} log10(M200) = {np.log10(M50):.2f} _-{(M50-M16)/M50/np.log(10):.2f} ^+{(M86-M50)/M50/np.log(10):.2f}")
+                                            full_quantiles)
 
-    # build a quantile table and use astropy Table to do a pretty print
-    ind = [3,4,0,5,1,6,2,7,8]
-    quantslog = np.log10(quants[:,ind])
-    names=[str(int(q)) for q in quantiles[ind]*100]
-
-    t2=Table(quantslog, names=names)
+    ind = np.argsort(full_quantiles)
+    quants = quants[:,ind]
+    names = names[ind]
+    t=Table(np.log10(quants), names=names)
 
     # add MassRank column
-    t2.add_column(np.arange(quantslog.shape[0], dtype=np.uint8), name='MassRank',
+    t.add_column(np.arange(NMassRanks, dtype=np.uint8), name='MassRank',
                   index=0)
 
     # print only 2 decimals for floating point numbers
-    for cname in t2.colnames:
-        if t2[cname].info.dtype in ['<f4', '<f8']:
-            t2[cname].info.format = '6.2f'
+    for cname in t.colnames:
+        if t[cname].info.dtype in ['<f4', '<f8']:
+            t[cname].info.format = '6.2f'
+        if units and cname != 'MassRank':
+            t[cname].unit = u.dex('Msun')
 
 
+    tErrors = t[['MassRank']]
+    tErrors['log10(M200)'] = t['50']
 
-
-    t3 = t2[['MassRank']]
-    t3['log10(M200)'] = np.log10(quants[:,1])
-
-    t3['-'] = (quants[:,1]-quants[:,0])/quants[:,1]/np.log(10)
-    t3['+'] = (quants[:,2]-quants[:,1])/quants[:,1]/np.log(10)
+    tErrors['-1σ'] = t['50'] - t['-1σ']
+    tErrors['+1σ'] = t['1σ'] - t['50']
+    tErrors['-2σ'] = t['50'] - t['-2σ']
+    tErrors['+2σ'] = t['2σ'] - t['50']
 
     # print only 2 decimals for floating point numbers
-    for cname in t3.colnames:
-        if t3[cname].info.dtype in ['<f4', '<f8']:
-            t3[cname].info.format = '6.2f'
-    t3['log10(M200)'].units = u.dex('Msun')
+    for cname in tErrors.colnames:
+        if tErrors[cname].info.dtype in ['<f4', '<f8']:
+            tErrors[cname].info.format = '6.2f'
 
     print('')
     print('')
     print('RESULTS: log median for every mass rank with ± 16th and 68th percentiles')
     print('         in latex is $log(M200)^{+}_{-}$')
-    print(t3)
+    print(tErrors)
 
     print('')
-    print('PERCENTILES TABLE')
-    print(t2)
+    print('')
+    print('PERCENTILES TABLE in round percentiles (dex(Msun))')
+    tmp = ['MassRank']
+    tmp.extend(names_round)
+    print(t[tmp])
+
+    tSigmas = t[[str(q)+'σ' for q in np.concatenate([-sigmaQuantiles[::-1],
+                                                       sigmaQuantiles])]]
+    tSigmas.add_column(t['50'], name = '0σ', index=sigmaQuantiles.size)
+    tSigmas.add_column(t['MassRank'], name = 'MassRank', index=0)
+
+    print('')
+    print('PERCENTILES TABLE in σ percentiles from the median (dex(Msun))')
+    print(tSigmas)
 
     if tvar is not None:
         if NMassRanks != tvar.shape[0]:
@@ -93,11 +134,12 @@ def pretty_print(Mmax: npt.NDArray,
         for cname in tvar.colnames:
             if tvar[cname].info.dtype in ['<f4', '<f8']:
                 tvar[cname].info.format = '6.1e'
-        print(tvar)
 
 
     if write:
-        t2.write('hebb_percentiles.txt', format='ascii.ecsv', overwrite=True)
+        for cname in t.colnames:
+            t.rename_column(cname, cname.replace('σ', 'sig'))
+        t.write('hebb_percentiles.txt', format='ascii.ecsv', overwrite=True)
         loggerH(f"TABLE: written 'hebb_quantiles.txt'")
 
 
@@ -147,7 +189,7 @@ def save_table(Mmax: npt.NDArray,
     # take a view to have it 1d and not to mess with the plot
     # no copy is involved
     Mmax1d = Mmax.view()
-    Mmax1d.shape = Mmax.size
+    Mmax1d = np.reshape(Mmax1d, shape=(Mmax1d.size,), copy=False)
 
     t=Table([Mmax1d, massRank, boxID, fileNrMax, subNrMax],
             names=['M200', 'MassRank', 'boxID', 'fileNr', 'subNr'])
