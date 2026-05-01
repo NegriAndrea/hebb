@@ -40,6 +40,7 @@ Issues = "https://github.com/NegriAndrea/hebb/issues"
 hebb = "hebb.hebb_cli:hebb_CLI"
 hebb-tr = "hebb.hebb_cli:hebb_trace_CLI"
 hebb-estimate = "hebb.hebb_cli:hebb_estimate_CLI"
+hebb-evol = "hebb.hebb_cli:hebb_evolution_CLI"
 
 
 [tool.setuptools]

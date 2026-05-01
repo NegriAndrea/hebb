@@ -18,9 +18,7 @@ def listSnapshotTimes() -> Table:
 
 def buildPercentileTable(Mmax: npt.NDArray,
                          *,
-                         units: bool = False,
-                         write: bool = False,
-                         tvar: npt.NDArray | None = None) -> None:
+                         units: bool = False) -> (Table, Table, Table):
     """
     Build a summary of the results as a quantile table.
 
@@ -36,16 +34,17 @@ def buildPercentileTable(Mmax: npt.NDArray,
     units : bool, optional
         Add units to the astropy table. Default False
 
-    write: bool, optional
-        Write the percentile table. Default False
-
-    tvar: np.ndarray, optional
-        Variance of the parameters estimated by the bayesian bootstrap. Default
-        None
-
     Returns
     -------
-    None
+    tSigmas: astropy.table.Table
+        Table containing the percentiles computed as gaussian equivalent
+        sigmas.
+
+    tRound: astropy.table.Table
+        Table containing the percentiles computed with nice round numbers.
+
+    tErrors: astropy.table.Table
+        Table containing the 1 and 2 sigma errors.
 
     """
     NMassRanks = Mmax.shape[0]
@@ -99,6 +98,53 @@ def buildPercentileTable(Mmax: npt.NDArray,
         if tErrors[cname].info.dtype in ['<f4', '<f8']:
             tErrors[cname].info.format = '6.2f'
 
+    tmp = ['MassRank']
+    tmp.extend(names_round)
+    tRound = t[tmp]
+    del tmp
+
+    tSigmas = t[[str(q)+'σ' for q in np.concatenate([-sigmaQuantiles[::-1],
+                                                       sigmaQuantiles])]]
+    tSigmas.add_column(t['50'], name = '0σ', index=sigmaQuantiles.size)
+    tSigmas.add_column(t['MassRank'], name = 'MassRank', index=0)
+
+    return tSigmas, tRound, tErrors
+
+
+
+def prettyPrint(tSigmas: Table,
+                tRound: Table,
+                tErrors: Table,
+                *,
+                write: bool = False,
+                tvar: npt.NDArray | None = None) -> None:
+    """
+    Pretty print the percentiles tables.
+
+    Parameters
+    ----------
+    tSigmas: astropy.table.Table
+        Table containing the percentiles computed as gaussian equivalent
+        sigmas.
+
+    tRound: astropy.table.Table
+        Table containing the percentiles computed with nice round numbers.
+
+    tErrors: astropy.table.Table
+        Table containing the 1 and 2 sigma errors.
+
+    write: bool, optional
+        Write the percentile table. Default False
+
+    tvar: np.ndarray, optional
+        Variance of the parameters estimated by the bayesian bootstrap. Default
+        None
+
+    Returns
+    -------
+    None
+
+    """
     print('')
     print('')
     print('RESULTS: log median for every mass rank with ± 16th and 68th percentiles')
@@ -108,20 +154,15 @@ def buildPercentileTable(Mmax: npt.NDArray,
     print('')
     print('')
     print('PERCENTILES TABLE in round percentiles (dex(Msun))')
-    tmp = ['MassRank']
-    tmp.extend(names_round)
-    print(t[tmp])
+    print(tRound)
 
-    tSigmas = t[[str(q)+'σ' for q in np.concatenate([-sigmaQuantiles[::-1],
-                                                       sigmaQuantiles])]]
-    tSigmas.add_column(t['50'], name = '0σ', index=sigmaQuantiles.size)
-    tSigmas.add_column(t['MassRank'], name = 'MassRank', index=0)
 
     print('')
     print('PERCENTILES TABLE in σ percentiles from the median (dex(Msun))')
     print(tSigmas)
 
     if tvar is not None:
+        NMassRanks = tRound['MassRank'].max()+1
         if NMassRanks != tvar.shape[0]:
             raise ValueError('tvar does not contain the same number of mass'
                              ' ranks as the mass array')
@@ -135,11 +176,22 @@ def buildPercentileTable(Mmax: npt.NDArray,
             if tvar[cname].info.dtype in ['<f4', '<f8']:
                 tvar[cname].info.format = '6.1e'
 
+        print(tvar)
+
 
     if write:
-        for cname in t.colnames:
-            t.rename_column(cname, cname.replace('σ', 'sig'))
-        t.write('hebb_percentiles.txt', format='ascii.ecsv', overwrite=True)
+        for cname in tSigmas.colnames:
+            if cname != 'MassRank':
+                tSigmas[cname].unit = u.dex('Msun')
+            tSigmas.rename_column(cname, cname.replace('σ', 'sig'))
+        tSigmas.write('hebb_sigma_percentiles.txt', format='ascii.ecsv', overwrite=True)
+
+        for cname in tRound.colnames:
+            if cname != 'MassRank':
+                tRound[cname].unit = u.dex('Msun')
+            tRound.rename_column(cname, cname.replace('σ', 'sig'))
+
+        tRound.write('hebb_round_percentiles.txt', format='ascii.ecsv', overwrite=True)
         loggerH(f"TABLE: written 'hebb_quantiles.txt'")
 
 
@@ -147,7 +199,9 @@ def buildPercentileTable(Mmax: npt.NDArray,
 def save_table(Mmax: npt.NDArray,
                fileNrMax: npt.NDArray,
                subNrMax: npt.NDArray,
-               args: argparse.Namespace) -> None:
+               args: argparse.Namespace,
+               *,
+               write: bool = False) -> Table:
     """
     Save bootstrap samples in a file.
 
@@ -201,13 +255,26 @@ def save_table(Mmax: npt.NDArray,
                         f" [0..{Mmax.shape[1]}]")
 
     t.meta = {'Description':'Hebb result table','Nboxes':boxID.max(),
-              'z_target':args.z_target, '-n':args.n,
-              '--survey':args.survey, '-L':args.L, '-M': args.M}
+              '-n':args.n,
+              '--survey':args.survey, '-L':args.L}
+
+    try:
+        t.meta['z_target'] = args.z_target
+    except AttributeError:
+        pass
+
+    try:
+        t.meta['-M'] = args.M
+    except AttributeError:
+        pass
 
     t.sort(['MassRank', 'boxID', 'fileNr', 'subNr'])
-    t.write('hebb_halo_samples.txt', format='ascii.ecsv', overwrite=True)
 
-    loggerN(f"TABLE: written 'hebb_halo_samples.txt'")
+    if write:
+        t.write('hebb_halo_samples.txt', format='ascii.ecsv', overwrite=True)
+        loggerN(f"TABLE: written 'hebb_halo_samples.txt'")
+
+    return t
 
 
 

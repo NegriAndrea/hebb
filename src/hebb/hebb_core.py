@@ -15,6 +15,13 @@ from time import perf_counter
 from .logger_mine import loggerH, loggerN
 from astropy.table import Table
 
+class HebbError(Exception):
+    pass
+class EmptyBoxError(HebbError):
+    pass
+class CatalogueError(HebbError):
+    pass
+
 
 
 def comovSideLenght(area: Quantity, zmin: float , zmax: float) -> Quantity:
@@ -139,7 +146,7 @@ def loadCatalogue(z_target: float,
             m200_bins_edges = ff[f'S-{snapNr}/M200c_bins_edges'][()]
             if (np.log10(M) < m200_bins_edges[0] and not
                 np.allclose(np.log10(M) , m200_bins_edges[0], atol=1e-3)):
-                raise ValueError(f"The requested mass {M=:.2e} Msun is too low for "
+                raise CatalogueError(f"The requested mass {M=:.2e} Msun is too low for "
                                  f"z={z_target}, database min mass at this z "
                                  f"is {10.**float(m200_bins_edges[0]):.2e} Msun")
             tmp = np.searchsorted(m200_bins_edges, np.log10(M))
@@ -437,7 +444,7 @@ def bootstrap_kdtree_single(BoxSize:    float,
                        dtype=dtype)
 
         if ind.size < NMassRank:
-            raise ValueError('Hitting a region with less than '
+            raise EmptyBoxError('Hitting a region with less than '
                              f"{NMassRank} subhalos, in case you used -M try"
                              ' to lower (or omit) the mass cut')
 
