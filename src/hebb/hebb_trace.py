@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, join
 from .logger_mine import loggerH, loggerN
 
 def unique_ordered(x):
@@ -65,20 +65,25 @@ def chopArray(arraySize, Nchunks):
 
     return offsets, sizes
 
-def hebb_trace(tableName, mergerTreePath, targetZ, v, serial):
+def hebb_trace(tableName, mergerTreePath, targetZ, v, serial,
+               readEntireForest = False):
+
+    t = Table.read(tableName, format='ascii.ecsv')
+    if targetZ <= t.meta['z_target']:
+        raise ValueError('You are requesting the progenitor at '
+                         f"z={targetZ} for a table computed at "
+                         f"z={t.meta['z_target']}, you need to "
+                         f"request a z>{t.meta['z_target']}")
 
     if serial:
-        # do it serially
-        t = Table.read(tableName, format='ascii.ecsv')
         return (hebb_trace_single(tableName, mergerTreePath, targetZ, v, 0,
-                len(t)),0)
+                len(t), readEntireForest = readEntireForest),0)
     else:
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
         size = comm.Get_size()
 
-        t = Table.read(tableName, format='ascii.ecsv')
         t.sort(['fileNr'])
 
         offset, sizes = chopArray(len(t), size)
@@ -87,12 +92,15 @@ def hebb_trace(tableName, mergerTreePath, targetZ, v, serial):
         i_end = sizes[rank]+i_begin
 
         local_t = hebb_trace_single(tableName,
-                mergerTreePath, targetZ, v, i_begin, i_end)
+                                    mergerTreePath, targetZ, v, i_begin, i_end,
+                                    readEntireForest = readEntireForest)
 
         all_tables = comm.gather(local_t, root=0)
 
         if rank == 0:
-            final_table = vstack(all_tables)
+            # get rid of Nones that might have been produced
+            tmp = [el for el in all_tables if el is not None]
+            final_table = vstack(tmp)
             return final_table, rank
         else:
             return None, rank
@@ -101,7 +109,7 @@ def hebb_trace(tableName, mergerTreePath, targetZ, v, serial):
 
 
 def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end,
-                      Ntrack = 10):
+                      Ntrack = 10, readEntireForest = False):
     """
     Trace back galaxies found with hebb.
 
@@ -149,7 +157,8 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end,
 
         loggerN(f'Read {fileMT}')
         # in case I want the position, use newFields=['Pos']
-        tree = chydrotree.forestCT(fileMT, newFields=[])
+        tree = chydrotree.forestCT(fileMT, newFields=[],
+                                   readEntireForest=readEntireForest)
 
         for sNr in subt['subNr']:
             loggerN(f"Doing {sNr}")
@@ -158,7 +167,8 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end,
                 # depends what I want to find, in this case the progenitor
                 # do I need raiseError=True?
                 tHist = tree.subHistory(sNr, targetSnapNr=targetSnapNr,
-                                        t=True, raiseError=True)
+                                        t=True,
+                                        raiseError=True)
 
                 # filter to get the target I want
                 tHist = tHist[tHist['SnapNr'] == targetSnapNr]
@@ -186,22 +196,32 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end,
                 if v>1:
                     print('NoProgenitor')
 
-    fullT = vstack(fullT)
-    tmp = np.vstack(massSingleProgs)
-    assert tmp.shape[1] == Ntrack
+    if len(fullT) == 0:
+        return None
+    else:
+        fullT = vstack(fullT)
+        tmp = np.vstack(massSingleProgs)
+        assert tmp.shape[1] == Ntrack
 
-    fullT['massMinorProgs'] = np.log10(np.array(massMinorMerger))
-    fullT['massMinorProgs'].unit = u.dex('Msun')
-    fullT['NMinorProgs'] = np.array(NMinorProgs)
+        fullT['massMinorProgs'] = np.log10(np.array(massMinorMerger))
+        fullT['massMinorProgs'].unit = u.dex('Msun')
+        fullT['NMinorProgs'] = np.array(NMinorProgs)
 
-    for i in range(Ntrack):
-        name = str(i+1)+'prog'
-        fullT[name] = tmp[:,i]
-        fullT[name].unit = u.dex('Msun')
+        for i in range(Ntrack):
+            name = str(i+1)+'prog'
+            fullT[name] = tmp[:,i]
+            fullT[name].unit = u.dex('Msun')
 
-    fullT['fileNr_original'] = np.array(fileNr_original,
-            dtype=t['fileNr'].dtype)
-    fullT['subNr_original'] = np.array(subNr_original,
-            dtype=t['subNr'].dtype)
+        fullT['fileNr_original'] = np.array(fileNr_original,
+                dtype=t['fileNr'].dtype)
+        fullT['subNr_original'] = np.array(subNr_original,
+                dtype=t['subNr'].dtype)
+        fullT = join(fullT, t, keys_left=['fileNr_original', 'subNr_original'],
+                     keys_right = ['fileNr', 'subNr'], join_type='inner')
+        fullT['MassRank_original'] = fullT['MassRank']
+        del fullT['M200']
+        del fullT['boxID']
+        del fullT['fileNr']
+        del fullT['subNr']
 
-    return fullT
+        return fullT

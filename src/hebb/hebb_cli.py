@@ -218,11 +218,15 @@ def hebb_trace_CLI():
                         help='verbosity level [%(default)d]')
     parser.add_argument('-s', action='store_true',
                         help='Use the code in serial, without the need of MPI')
+    parser.add_argument('-f', action='store_true',
+                        help='For each merger tree file, load the whole forest'
+                        ' (best for when you have many galaxies in the same'
+                        ' file)')
 
     args = parser.parse_args()
 
     finalT, mpirank = hebb_trace(args.hebbTable, args.treePath, args.z_target,
-            args.v, args.s)
+            args.v, args.s, readEntireForest = args.f)
 
 
     if mpirank == 0:
