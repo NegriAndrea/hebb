@@ -218,7 +218,7 @@ def hebb_trace_single(tableName, mergerTreePath, targetZ, v, i_begin, i_end,
                 dtype=t['subNr'].dtype)
         fullT = join(fullT, t, keys_left=['fileNr_original', 'subNr_original'],
                      keys_right = ['fileNr', 'subNr'], join_type='inner')
-        fullT['MassRank_original'] = fullT['MassRank']
+        fullT.rename_column('MassRank', 'MassRank_original')
         del fullT['M200']
         del fullT['boxID']
         del fullT['fileNr']
